@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JPopupMenu;
+
 public class Label extends DrawObject {
 	String text;
 	double fontsize;
@@ -15,6 +17,11 @@ public class Label extends DrawObject {
 
 		fontsize = 18.0;
 		text = string;
+	}
+	
+	@Override
+	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {
+		return null;
 	}
 	
 	public List<PropertyEntry> getPropertiesPanelLayout() {

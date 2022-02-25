@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JPopupMenu;
+
 public abstract class DrawObject {
 	protected Canvas canvasParent;
 	protected DrawObject parent;
@@ -12,7 +14,7 @@ public abstract class DrawObject {
 		children = new ArrayList<DrawObject>();
 		relativePosition = coord;
 	}
-	
+		
 	public void mouseDragging(double deltaX, double deltaY) {
 		relativePosition.x += deltaX;
 		relativePosition.y += deltaY;
@@ -35,10 +37,13 @@ public abstract class DrawObject {
 		return data;
 	}
 	
+	public abstract RightClickMenu getRightClickMenu(Econogram e, DrawObject o);
 	public abstract String getSerialisation();
 	public abstract void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives);
 	public abstract void addDrawPrimativesPostChild(Coordinate base, List<DrawPrimative> primatives);
 	public abstract String getName();
+	public abstract List<PropertyEntry> getPropertiesPanelLayout();
+	public abstract void updateProperty(PropertyEntry property);
 	
 	protected boolean selected;
 	
@@ -47,12 +52,8 @@ public abstract class DrawObject {
 	}
 	
 	public void markSelected(boolean state) {
-		System.out.printf("Marking object with name %s with %s\n", getName(), state ? "true" : "false");
 		selected = state;
 	}
-	
-	public abstract List<PropertyEntry> getPropertiesPanelLayout();
-	public abstract void updateProperty(PropertyEntry property);
 	
 	public void setCanvasParent(Canvas c) {
 		canvasParent = c;
@@ -90,6 +91,8 @@ public abstract class DrawObject {
 	public void addChild(DrawObject child) {
 		children.add(child);
 		
+		child.canvasParent = this.canvasParent;
+		
 		if (child.parent == null) {
 			child.parent = this;
 		} else {
@@ -104,6 +107,10 @@ public abstract class DrawObject {
 
 		for (DrawObject child : children) {
 			primatives.addAll(child.getRender(new Coordinate(base, child.relativePosition)));
+		}
+		
+		if (parent != null && getCanvasParent() != null && getCanvasParent().isShowingParentGuides()) {
+			primatives.add(new PrimativeDebugGuideLine(this, parent.relativePosition, new Coordinate(parent.relativePosition, relativePosition)));
 		}
 		
 		addDrawPrimativesPostChild(base, primatives);

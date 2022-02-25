@@ -2,6 +2,7 @@ import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 
 public class Arrowhead extends DrawObject {
@@ -39,6 +40,11 @@ public class Arrowhead extends DrawObject {
 	
 	public void setAngle(double angle) {
 		this.angle = angle;
+	}
+	
+	@Override
+	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {
+		return null;
 	}
 	
 	@Override

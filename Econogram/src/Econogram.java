@@ -28,7 +28,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	Canvas canvas;
 	Axis primaryAxis;
 	PropertiesPanel propertiesPanel;
-
+	
 	JScrollBar hzScrollBar;
 	JScrollBar vtScrollBar;
 	
@@ -61,7 +61,9 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			return;
 		}
 		
-		System.out.printf("%s\n", canvas.serialise());
+		String serial = String.format("%s", canvas.serialise());
+		
+		System.out.printf("%s\n", serial);
 				
 		unsavedChanges = false;
 		updateTitle();
@@ -86,6 +88,17 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			filepath = path;
 			save();
 		}
+	}
+	
+	void createLabelAtMouse(boolean free) {
+		if (free) {
+			canvas.addObject(new Label(new Coordinate((int) mouseDownX, (int) mouseDownY), "New free label"));
+
+		} else {
+			primaryAxis.addChild(new Label(new Coordinate((int) mouseDownX - primaryAxis.relativePosition.x, (int) mouseDownY - primaryAxis.relativePosition.y), "New bound label"));
+		}
+		
+		canvas.repaint();
 	}
 	
 	void addViewMenuBar(JMenuBar menu) {
@@ -122,6 +135,24 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		viewMenu.add(zoomOutButton);
+		
+		viewMenu.add(new JSeparator());
+		
+		JMenuItem showHideParentGuides = new JMenuItem(canvas.isShowingParentGuides() ? "Hide parent guides" : "Show parent guides");
+		showHideParentGuides.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (canvas.isShowingParentGuides()) {
+					canvas.showParentGuides(false);
+					showHideParentGuides.setText("Show parent guides");
+				} else {
+					canvas.showParentGuides(true);
+					showHideParentGuides.setText("Hide parent guides");
+				}
+				canvas.repaint();
+			}
+		});
+		viewMenu.add(showHideParentGuides);
 	}
 	
 	void addHelpMenuBar(JMenuBar menu) {
@@ -160,6 +191,15 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		menu.add(windowMenu);
 		
 		
+	}
+	
+	void setPrimaryAxis(Axis a) {
+		if (a == null) {
+			JOptionPane.showMessageDialog(frame, "Please select an axis first.", "No axis selected", JOptionPane.ERROR_MESSAGE);
+
+		} else {
+			primaryAxis = a;
+		}
 	}
 	
 	void addToolsMenuBar(JMenuBar menu) {
@@ -203,7 +243,8 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		});
 		insertMenu.add(labelButton1);
 		
-		JMenuItem labelButton2 = new JMenuItem("Free Label");
+		JMenuItem labelButton2 = new JMenuItem("Free Label          ");
+		labelButton2.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask() | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		labelButton2.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -221,11 +262,12 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		menu.add(editMenu);
 		
 		JMenuItem setAxisButton = new JMenuItem("Set Primary Axis      ");
+		setAxisButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		setAxisButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (propertiesPanel.object != null && propertiesPanel.object.getClass() == (new Axis(new Coordinate(0.0, 0.0))).getClass()) {
-					primaryAxis = (Axis) propertiesPanel.object;
+					setPrimaryAxis((Axis) propertiesPanel.object);
 				} else {
 					JOptionPane.showMessageDialog(frame, "Please select an axis first.", "No axis selected", JOptionPane.ERROR_MESSAGE);
 				}
@@ -533,8 +575,24 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			panDragMode = false;
 			statusLabel.setText(String.format("You clicked on a %s", objClickedOn.getName()));
 			propertiesPanel.attach(objClickedOn);
+			
 		}
 	
+
+		if (SwingUtilities.isRightMouseButton(e)) {
+			JPopupMenu menu = null;
+			
+			if (objClickedOn != null) {
+				menu = objClickedOn.getRightClickMenu(this, objClickedOn);
+			} else {
+				menu = new CanvasRightClickMenu(this, null); 
+			}
+			
+			if (menu != null) {
+				menu.show(canvas, e.getX(), e.getY());
+			}
+		}
+		
 		canvas.repaint();
 
 	}

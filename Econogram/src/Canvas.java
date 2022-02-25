@@ -8,7 +8,16 @@ public class Canvas extends JPanel {
 	List<DrawObject> children;
 	ZoomPanSettings zoomPanSettings;
 	Econogram econogram;
+	boolean showingParentGuides = false;
 	
+	public boolean isShowingParentGuides() {
+		return showingParentGuides;
+	}
+	
+	public void showParentGuides(boolean state) {
+		showingParentGuides = state;
+	}
+
 	protected double width;
 	protected double height;
 	
@@ -97,16 +106,17 @@ public class Canvas extends JPanel {
 		if (zoomPanSettings.zoom > 8.0) {
 			zoomPanSettings.zoom = 8.0;
 		}
+		
 		repaint();
 	}
 	
 	public void addObject(DrawObject obj) {
-		children.add(obj);
 		obj.setCanvasParent(this);
+		children.add(obj);
 	}
 	
 	public String serialise() {		
-		String data = String.format("{%f,%f,%f,%f,%f,%d,", width, height, zoomPanSettings.zoom, zoomPanSettings.x, zoomPanSettings.y, children.size());
+		String data = String.format("{%d,%f,%f,%f,%f,%f,%d,", showingParentGuides ? 1 : 0, width, height, zoomPanSettings.zoom, zoomPanSettings.x, zoomPanSettings.y, children.size());
 		
 		for (DrawObject child : children) {
 			String childSerial = child.serialise();
@@ -120,13 +130,19 @@ public class Canvas extends JPanel {
 	
 	public DrawObject getObjectAtPosition(double x, double y) {
 		List<DrawPrimative> primatives = getPrimatives();
+		
+		double lenience = -1.0;
 
-		for (DrawPrimative primative : primatives) {
-			System.out.printf("(%f:%f) %f -> %f, %f -> %f\n", x, y, primative.getX(), primative.getX() + primative.getWidth(), primative.getY(), primative.getY() + primative.getHeight());
-			
-			if (x >= primative.getX() && x < primative.getX() + primative.getWidth() && y >= primative.getY() && y < primative.getY() + primative.getHeight()) {
-				return primative.parent;
+		//start by requiring very high precision (i.e. slightly inside the object)
+		//and if nothing's found, keep iterating with more lenience until we find something
+		//to click on, or there's no object there (lenience reaches 5.0)
+		while (lenience < 4.1) {
+			for (DrawPrimative primative : primatives) {			
+				if (x >= primative.getX() - lenience && x < primative.getX() + primative.getWidth() + 2 * lenience && y >= primative.getY() - lenience && y < primative.getY() + primative.getHeight() + 2 * lenience) {
+					return primative.parent;
+				}
 			}
+			lenience += 1.0;
 		}
 		
 		return null;

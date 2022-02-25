@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JPopupMenu;
+
 public class Axis extends DrawObject {
 	
 	int axisSize;
@@ -49,7 +51,9 @@ public class Axis extends DrawObject {
 
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
-		
+		//canvas.addObject(thisAxis) happens AFTER the constructor is called, so the children never get a canvasParent
+		vtAxisLabel.setCanvasParent(canvasParent);
+		hzAxisLabel.setCanvasParent(canvasParent);
 	}
 
 	@Override
@@ -80,5 +84,10 @@ public class Axis extends DrawObject {
 	@Override
 	public String getSerialisation() {
 		return String.format("%d", axisSize);
+	}
+
+	@Override
+	public RightClickMenu getRightClickMenu(Econogram e, DrawObject c) {
+		return new AxisRightClickMenu(e, c);
 	}
 }
