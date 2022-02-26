@@ -9,6 +9,8 @@ public class Canvas extends JPanel {
 	ZoomPanSettings zoomPanSettings;
 	Econogram econogram;
 	boolean showingParentGuides = false;
+	double usedWidth = 1000;
+	double usedHeight = 1000;
 	
 	public boolean isShowingParentGuides() {
 		return showingParentGuides;
@@ -22,15 +24,15 @@ public class Canvas extends JPanel {
 	protected double height;
 	
 	public double getUsedWidth() {
-		return 1000;
+		return (usedWidth < 350 ? 1000 : usedWidth + 650);
+	}
+	
+	public double getUsedHeight() {
+		return (usedHeight < 350 ? 1000 : usedHeight + 650);
 	}
 	
 	public double getZoom() {
 		return zoomPanSettings.zoom;
-	}
-	
-	public double getUsedHeight() {
-		return 1000;
 	}
 	
 	public void zoomIn() {
@@ -60,6 +62,9 @@ public class Canvas extends JPanel {
 	public void scrollY(double amount) {
 		zoomPanSettings.y += amount;
 
+		if (zoomPanSettings.y > usedHeight) {
+			zoomPanSettings.y = usedHeight;
+		}
 		if (zoomPanSettings.y < 0.0) {
 			zoomPanSettings.y = 0.0;
 		}
@@ -87,6 +92,12 @@ public class Canvas extends JPanel {
 		zoomPanSettings.x = x;
 		zoomPanSettings.y = y;
 		
+		if (zoomPanSettings.x > usedWidth) {
+			zoomPanSettings.x = usedWidth;
+		}
+		if (zoomPanSettings.y > usedHeight) {
+			zoomPanSettings.y = usedHeight;
+		}
 		if (zoomPanSettings.x < 0.0) {
 			zoomPanSettings.x = 0.0;
 		}
@@ -163,9 +174,26 @@ public class Canvas extends JPanel {
 		g.setColor(Color.WHITE);
 		g.fillRect(0, 0, (int) width, (int) height);
 		
+		double oldW = getUsedWidth();
+		double oldH = getUsedHeight();
+		
+		usedHeight = 1000;
+		usedWidth = 1000;
+		
 		List<DrawPrimative> primatives = getPrimatives();
 		for (DrawPrimative primative : primatives) {
 			primative.draw(g, zoomPanSettings);
+			
+			if (primative.getX() + primative.getWidth() > usedWidth) {
+				usedWidth = primative.getX() + primative.getWidth();
+			}
+			if (primative.getY() + primative.getHeight() > usedHeight) {
+				usedHeight = primative.getY() + primative.getHeight();
+			}
+		}
+		
+		if (oldW != getUsedWidth() || oldH != getUsedHeight()) {
+			econogram.updateScrollbarSizes();
 		}
 	}
 }

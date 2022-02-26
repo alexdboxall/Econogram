@@ -48,6 +48,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	
 	void updateScrollbarSizes() {
 		hzScrollBar.setVisibleAmount((int)((canvas.getWidth() / canvas.getZoom()) / (canvas.getUsedWidth() * canvas.getZoom()) * 1000 / canvas.getZoom()));
+		vtScrollBar.setVisibleAmount((int)((canvas.getHeight() / canvas.getZoom()) / (canvas.getUsedHeight() * canvas.getZoom()) * 1000 / canvas.getZoom()));
 	}
 	
 	void performSavableAction() {
@@ -92,10 +93,14 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	
 	void createLabelAtMouse(boolean free) {
 		if (free) {
-			canvas.addObject(new Label(new Coordinate((int) mouseDownX, (int) mouseDownY), "New free label"));
+			double x = (mouseDownX + canvas.getPanX()) / canvas.getZoom();
+			double y = (mouseDownY + canvas.getPanY()) / canvas.getZoom();
+			canvas.addObject(new Label(new Coordinate((int) x, (int) y), "New free label"));
 
 		} else {
-			primaryAxis.addChild(new Label(new Coordinate((int) mouseDownX - primaryAxis.relativePosition.x, (int) mouseDownY - primaryAxis.relativePosition.y), "New bound label"));
+			double x = (mouseDownX + canvas.getPanX() - primaryAxis.relativePosition.x) / canvas.getZoom();
+			double y = (mouseDownY + canvas.getPanY() - primaryAxis.relativePosition.y) / canvas.getZoom();
+			primaryAxis.addChild(new Label(new Coordinate((int) x , (int) y), "New bound label"));
 		}
 		
 		canvas.repaint();
@@ -112,6 +117,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				canvas.setZoom(1.0);
+				updateScrollbarSizes();
 			}
 		});
 		viewMenu.add(zoom100Button);
@@ -122,6 +128,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				canvas.zoomIn();
+				updateScrollbarSizes();
 			}
 		});
 		viewMenu.add(zoomInButton);
@@ -132,6 +139,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				canvas.zoomOut();
+				updateScrollbarSizes();
 			}
 		});
 		viewMenu.add(zoomOutButton);
@@ -412,7 +420,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		hzScrollBar.setMinimum(0);
 		hzScrollBar.setMaximum(1000);
 		hzScrollBar.setVisibleAmount((int)(canvas.getWidth() / canvas.getUsedWidth() * 1000));
-
 		hzScrollBar.addAdjustmentListener(new AdjustmentListener() {
 			@Override
 			public void adjustmentValueChanged(AdjustmentEvent e) {
@@ -422,7 +429,27 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		renderScrollPane.add(hzScrollBar, BorderLayout.SOUTH);
+		
+		
+		vtScrollBar = new JScrollBar();
+		vtScrollBar.setOrientation(Adjustable.VERTICAL);
+		vtScrollBar.setUnitIncrement(10);
+		vtScrollBar.setMinimum(0);
+		vtScrollBar.setMaximum(1000);
+		vtScrollBar.setVisibleAmount((int)(canvas.getHeight() / canvas.getUsedHeight() * 1000));
+		vtScrollBar.addAdjustmentListener(new AdjustmentListener() {
+			@Override
+			public void adjustmentValueChanged(AdjustmentEvent e) {
+				double pos = vtScrollBar.getValue();
+				double relativePos = (pos / ((double)(vtScrollBar.getMaximum() - vtScrollBar.getMinimum()))) * canvas.getUsedHeight();
+				canvas.setPan(canvas.getPanX(), relativePos * canvas.getZoom());
+			}
+		});
+		renderScrollPane.add(vtScrollBar, BorderLayout.EAST);
+		
 		renderScrollPane.setPreferredSize(new Dimension(850, 750));
+		
+		
 		
 		JLabel zoomLabel;
 
@@ -539,9 +566,14 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		if (e.isControlDown()) {
 			if (notches > 0) canvas.zoomOut();
 			else if (notches < 0) canvas.zoomIn();
+
+			updateScrollbarSizes();
 			
 		} else {
 			canvas.scrollY(((double) notches) * 25.0);
+			
+			double posy = ((canvas.zoomPanSettings.y) * ((double)(vtScrollBar.getMaximum() - vtScrollBar.getMinimum()))) / canvas.getUsedHeight() / canvas.getZoom();
+			vtScrollBar.setValue((int) posy);
 		}
 		
 	}
@@ -617,6 +649,12 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		canvas.setCursor(new Cursor(Cursor.HAND_CURSOR));
 		
 		if (panDragMode) {
+			double posx = ((panOnMouseDownX - e.getX() + mouseDownX) * ((double)(hzScrollBar.getMaximum() - hzScrollBar.getMinimum()))) / canvas.getUsedWidth() / canvas.getZoom();
+			double posy = ((panOnMouseDownY - e.getY() + mouseDownY) * ((double)(vtScrollBar.getMaximum() - vtScrollBar.getMinimum()))) / canvas.getUsedHeight() / canvas.getZoom();
+			
+			hzScrollBar.setValue((int) posx);
+			vtScrollBar.setValue((int) posy);
+
 			canvas.setPan(panOnMouseDownX - e.getX() + mouseDownX, panOnMouseDownY - e.getY() + mouseDownY);
 		
 		} else {
