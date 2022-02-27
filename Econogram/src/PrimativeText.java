@@ -57,8 +57,6 @@ public class PrimativeText extends DrawPrimative {
 		internalGraphics2D.drawString(text, (int) x, (int) y);
 		prevWidth = internalGraphics2D.getFontMetrics().stringWidth(text);
 		prevHeight = size;
-		
-		System.out.printf("%f, %f\n", prevWidth, prevHeight);
 	}
 
 	@Override

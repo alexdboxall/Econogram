@@ -8,10 +8,13 @@ public class Point extends DrawObject {
 	Label label;
 	PointLine hzLine;
 	PointLine vtLine;
+	boolean hzShowing = true;
+	boolean vtShowing = true;
+	boolean showDot = true;
 
 	@Override
 	public String getSerialisation() {
-		return String.format("?");
+		return String.format("%c%c%c", showDot ? 'T' : 'F', vtShowing ? 'T' : 'F', hzShowing ? 'T' : 'F');
 	}
 	
 	public Point(Coordinate relativePos) {
@@ -28,24 +31,47 @@ public class Point extends DrawObject {
 		relCutoffY = 0;
 		relativePosition.x = newX;
 		relativePosition.y = newY;
-		
-		relativePosition.x = 250;
-		relativePosition.y = 250;
 	}
 	
 	@Override
 	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {
-		return null;
+		return new PointRightClickMenu(e, o);
 	}
 	
 	public List<PropertyEntry> getPropertiesPanelLayout() {
 		ArrayList<PropertyEntry> properties = new ArrayList<PropertyEntry>();
-		
+		properties.add(new PropertyEntryCheckbox("dot", "Show dot:", showDot));
+		properties.add(new PropertyEntryCheckbox("hzs", "Show horizontal line:", hzShowing));
+		properties.add(new PropertyEntryCheckbox("vts", "Show vertical line:", vtShowing));
+
 		return properties;
 	}
 
 	public void updateProperty(PropertyEntry property) {
-		
+		if (property.id.equals("hzs")) {
+			boolean old = hzShowing;
+			hzShowing = ((PropertyEntryCheckbox) property).selected;
+			if (!hzShowing && old) {
+				hzLine.delete();
+			} else if (hzShowing && !old) {
+				addChild(hzLine);
+			}
+			update();
+		}
+		if (property.id.equals("vts")) {
+			boolean old = vtShowing;
+			vtShowing = ((PropertyEntryCheckbox) property).selected;
+			if (!vtShowing && old) {
+				vtLine.delete();
+			} else if (vtShowing && !old) {
+				addChild(vtLine);
+			}
+			update();
+		}
+		if (property.id.equals("dot")) {
+			showDot = ((PropertyEntryCheckbox) property).selected;
+			update();
+		}
 	}
 
 	@Override
@@ -71,7 +97,9 @@ public class Point extends DrawObject {
 		coordList.add(new Coordinate(base, new Coordinate(5.0, 5.0)));
 		coordList.add(new Coordinate(base, new Coordinate(-5.0, 5.0)));
 
-		primatives.add(new PrimativePolygon(this, coordList));
+		if (showDot) {
+			primatives.add(new PrimativePolygon(this, coordList));
+		}
 	}
 
 	@Override
