@@ -8,8 +8,8 @@ public class PropertyEntryColourPicker extends PropertyEntry {
 	int colour;
 	PropertyEntryColourPicker self;
 	
-	JPanel producePanel(DrawObject obj) {
-		JPanel panel = new JPanel();
+	PropertyEntryPanel producePanel(DrawObject obj) {
+		PropertyEntryPanel panel = new PropertyEntryPanel();
 		
 		self = this;
 		
@@ -30,10 +30,34 @@ public class PropertyEntryColourPicker extends PropertyEntry {
 		changebox.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				Color col = JColorChooser.showDialog(null, "Choose a colour", Color.BLACK);
-				colour = col.getRGB() & 0xFFFFFF;
-				obj.updateProperty(self);
-				obj.updatePropertiesPanel();
+				obj.getCanvasParent().econogram.actionManager.add(new Action() {
+					int oldColour;
+					
+					@Override
+					public boolean execute() {
+						oldColour = colour;
+						Color col = JColorChooser.showDialog(null, "Choose a colour", Color.BLACK);
+						colour = col.getRGB() & 0xFFFFFF;
+						obj.updateProperty(self);
+						obj.updatePropertiesPanel();
+						
+						return true;
+					}
+
+					@Override
+					public boolean undo() {
+						colour = oldColour;
+						obj.updateProperty(self);
+						obj.updatePropertiesPanel();
+						return true;
+					}
+					
+					@Override
+					public boolean redo() {
+						return execute();
+					}
+				});
+				
 			}
 		});
 

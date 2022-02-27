@@ -7,17 +7,24 @@ import javax.swing.event.ChangeListener;
 public class PropertyEntrySlider extends PropertyEntry {
 	String displayText;
 
+	Action textUpdateAction = null;
+	
 	double min;
 	double max;
 	double value;
 	double major;
 	double minor;
 	boolean paintTicks;
-	
+
 	PropertyEntrySlider self;
+	protected JLabel val;
 	
-	JPanel producePanel(DrawObject obj) {
-		JPanel panel = new JPanel();
+	public JLabel getJLabel() {
+		return val;
+	}
+	
+	PropertyEntryPanel producePanel(DrawObject obj) {
+		PropertyEntryPanel panel = new PropertyEntryPanel();
 		GridBagLayout layout = new GridBagLayout();
 		GridBagConstraints c = new GridBagConstraints();
 		panel.setLayout(layout);
@@ -27,10 +34,9 @@ public class PropertyEntrySlider extends PropertyEntry {
 		JLabel label = new JLabel(displayText, JLabel.LEFT);
 		label.setFont(new Font("Courier New", Font.PLAIN, 12));
 
-		JLabel val = new JLabel(displayText, JLabel.LEFT);
 		val.setFont(new Font("Courier New", Font.PLAIN, 12));
 		
-		JSlider slider = new JSlider();
+		PEJSliderOverride slider = new PEJSliderOverride();
 		slider.setMinimum(0);
 		slider.setMaximum(100000);
 		slider.setValue((int)((value - min) / (max - min) * 100000.0));
@@ -39,19 +45,57 @@ public class PropertyEntrySlider extends PropertyEntry {
 		slider.setMajorTickSpacing((int) major);
 		slider.setMinorTickSpacing((int) minor);
 		slider.setPaintTicks(paintTicks);
-		
+		slider.hasOldValue = false;
+	
 		slider.addChangeListener(new ChangeListener() {
 
 			@Override
 			public void stateChanged(ChangeEvent e) {
-				val.setText(String.format("%.1f", ((double) slider.getValue()) / 100000.0 * (max - min) + min));
-				value = ((double) slider.getValue()) / 100000.0 * (max - min) + min;
-				obj.updateProperty(self);
+				obj.getCanvasParent().econogram.actionManager.add(new Action() {
+					
+					@Override
+					public boolean execute() {						  
+						if (!slider.hasOldValue) {
+							slider.oldValue = slider.getValue();
+						}
+						
+						val.setText(String.format("%.1f", ((double) slider.getValue()) / 100000.0 * (max - min) + min));
+						if (textUpdateAction != null) {
+							textUpdateAction.execute();
+						}
+						value = ((double) slider.getValue()) / 100000.0 * (max - min) + min;
+						obj.updateProperty(self);
+					
+						slider.hasOldValue = true;
+
+						return !slider.getValueIsAdjusting();
+					}
+
+					@Override
+					public boolean undo() {
+						slider.setValue(slider.oldValue);
+						val.setText(String.format("%.1f", ((double) slider.getValue()) / 100000.0 * (max - min) + min));
+						if (textUpdateAction != null) {
+							textUpdateAction.execute();
+						}
+						value = ((double) slider.getValue()) / 100000.0 * (max - min) + min;
+						obj.updateProperty(self);
+						return true;
+					}
+					
+					@Override
+					public boolean redo() {
+						return execute();
+					}
+				});
 			}
 		});
 		
 		val.setText(String.format("%.1f", ((double) slider.getValue()) / 100000.0 * (max - min) + min));
-		
+		if (textUpdateAction != null) {
+			System.out.printf("!! 1\n");
+			textUpdateAction.execute();
+		}
 		c.gridx = 0;
 		c.gridy = 0;
 		panel.add(label, c);
@@ -67,6 +111,9 @@ public class PropertyEntrySlider extends PropertyEntry {
 
 	PropertyEntrySlider(String id, String displayText, double min, double max, double value, boolean snap, double major, double minor) {
 		super(id);
+		
+		val = new JLabel(displayText, JLabel.LEFT);
+		
 		this.displayText = displayText;
 		this.min = min;
 		this.max = max;

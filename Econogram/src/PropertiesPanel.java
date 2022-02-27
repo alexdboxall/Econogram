@@ -9,8 +9,10 @@ public class PropertiesPanel extends JPanel {
 	private static final long serialVersionUID = -2639415047143053852L;
 		
 	DrawObject object;
+	PropertyEntryPanel doubleClickPanel;
 	
 	void detach() {
+		doubleClickPanel = null;
 		if (object != null) {
 			object.markSelected(false);
 		}
@@ -26,10 +28,24 @@ public class PropertiesPanel extends JPanel {
 		validate();
 	}
 	
+	void goToDoubleClickProperty(DrawObject obj) {
+		regenerate();
+		
+		if (doubleClickPanel != null && doubleClickPanel.doubleClickHandler != null) {
+			doubleClickPanel.doubleClickHandler.execute();
+		}
+	}
+	
 	void regenerate() {
+		doubleClickPanel = null;
 		removeAll();
 		validate();
 		super.repaint();
+		
+		if (object == null) {
+			detach();
+			return;
+		}
 		
 		JLabel titleLine = new JLabel(object.getName());
 		titleLine.setFont(new Font(titleLine.getFont().getFamily(), Font.BOLD, 16));
@@ -46,13 +62,18 @@ public class PropertiesPanel extends JPanel {
 		for (PropertyEntry property : properties) {
 			c.gridx = 0;
 			c.gridy++;
-			subPanel.add(property.producePanel(object), c);
+			PropertyEntryPanel panel = property.producePanel(object);
+			if (doubleClickPanel == null && panel.doubleClickHandler != null) {
+				doubleClickPanel = panel;
+			}
+			subPanel.add(panel, c);
 		}
 		
 		validate();
 	}
 	
 	void attach(DrawObject obj) {
+		doubleClickPanel = null;
 		if (object != null) {
 			object.markSelected(false);
 		}

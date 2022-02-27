@@ -100,6 +100,8 @@ public class Arrowhead extends DrawObject {
 	public Arrowhead(Coordinate relativePos, BuiltinStyle style, double angle) {
 		super(relativePos);
 		
+		canDrag = false;
+		
 		this.angle = angle;
 
 		//set the properties based on the style given
@@ -202,5 +204,4 @@ public class Arrowhead extends DrawObject {
 	public void addDrawPrimativesPostChild(Coordinate base, List<DrawPrimative> primatives) {
 		
 	}
-	
 }

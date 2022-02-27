@@ -8,6 +8,7 @@ public class AxisRightClickMenu extends RightClickMenu {
 	}
 
 	public void init() {
+		
 		JMenuItem setPrimary = new JMenuItem("Set as Primary Axis");
 		setPrimary.addActionListener(new ActionListener() {
 			@Override
@@ -16,5 +17,16 @@ public class AxisRightClickMenu extends RightClickMenu {
 			}
 		});
 		add(setPrimary); 
+		
+		add(new JSeparator());
+		
+		JMenuItem delete = new JMenuItem("Delete");
+		delete.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				econogram.actionManager.add(econogram.DELETE_SELECTED_OBJECT.build());
+			}
+		});
+		add(delete); 
 	}
 }

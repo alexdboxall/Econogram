@@ -36,17 +36,25 @@ public class Canvas extends JPanel {
 	}
 	
 	public void zoomIn() {
-		zoomPanSettings.zoom += 0.2;
-		if (zoomPanSettings.zoom > 8.0) {
-			zoomPanSettings.zoom = 8.0;
+		if (zoomPanSettings.zoom > 0.70 && zoomPanSettings.zoom < 0.95) {
+			zoomPanSettings.zoom = 1.0;
+		} else {
+			zoomPanSettings.zoom += 0.25;
+			if (zoomPanSettings.zoom > 5.0) {
+				zoomPanSettings.zoom = 5.0;
+			}
 		}
 		repaint();
 	}
 	
 	public void zoomOut() {
-		zoomPanSettings.zoom -= 0.2;
-		if (zoomPanSettings.zoom < 0.2) {
-			zoomPanSettings.zoom = 0.2;
+		if (zoomPanSettings.zoom > 1.05 && zoomPanSettings.zoom < 1.30) {
+			zoomPanSettings.zoom = 1.0;
+		} else {
+			zoomPanSettings.zoom -= 0.25;
+			if (zoomPanSettings.zoom < 0.25) {
+				zoomPanSettings.zoom = 0.25;
+			}
 		}
 		repaint();
 	}
@@ -59,11 +67,15 @@ public class Canvas extends JPanel {
 		return zoomPanSettings.y;
 	}
 	
+	public void deleteChild(DrawObject obj) {
+		children.remove(obj);
+	}
+	
 	public void scrollY(double amount) {
 		zoomPanSettings.y += amount;
 
-		if (zoomPanSettings.y > usedHeight) {
-			zoomPanSettings.y = usedHeight;
+		if (zoomPanSettings.y > usedHeight * zoomPanSettings.zoom) {
+			zoomPanSettings.y = usedHeight * zoomPanSettings.zoom;
 		}
 		if (zoomPanSettings.y < 0.0) {
 			zoomPanSettings.y = 0.0;
@@ -92,11 +104,11 @@ public class Canvas extends JPanel {
 		zoomPanSettings.x = x;
 		zoomPanSettings.y = y;
 		
-		if (zoomPanSettings.x > usedWidth) {
-			zoomPanSettings.x = usedWidth;
+		if (zoomPanSettings.x > usedWidth * zoomPanSettings.zoom) {
+			zoomPanSettings.x = usedWidth * zoomPanSettings.zoom;
 		}
-		if (zoomPanSettings.y > usedHeight) {
-			zoomPanSettings.y = usedHeight;
+		if (zoomPanSettings.y > usedHeight * zoomPanSettings.zoom) {
+			zoomPanSettings.y = usedHeight * zoomPanSettings.zoom;
 		}
 		if (zoomPanSettings.x < 0.0) {
 			zoomPanSettings.x = 0.0;
@@ -111,11 +123,11 @@ public class Canvas extends JPanel {
 	public void setZoom(double zoom) {
 		zoomPanSettings.zoom = zoom;
 		
-		if (zoomPanSettings.zoom < 0.2) {
-			zoomPanSettings.zoom = 0.2;
+		if (zoomPanSettings.zoom < 0.25) {
+			zoomPanSettings.zoom = 0.25;
 		}
-		if (zoomPanSettings.zoom > 8.0) {
-			zoomPanSettings.zoom = 8.0;
+		if (zoomPanSettings.zoom > 5.0) {
+			zoomPanSettings.zoom = 5.0;
 		}
 		
 		repaint();

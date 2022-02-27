@@ -6,10 +6,11 @@ import javax.swing.JPopupMenu;
 public class Label extends DrawObject {
 	String text;
 	double fontsize;
+	boolean rotated = false;
 
 	@Override
 	public String getSerialisation() {
-		return String.format("%f,%s", fontsize, text);
+		return String.format("%f,%s,%c", fontsize, text, rotated ? 'Y' : 'N');
 	}
 	
 	public Label(Coordinate relativePos, String string) {
@@ -21,16 +22,18 @@ public class Label extends DrawObject {
 	
 	@Override
 	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {
-		return null;
+		return new LabelRightClickMenu(e, o);
 	}
 	
 	public List<PropertyEntry> getPropertiesPanelLayout() {
 		ArrayList<PropertyEntry> properties = new ArrayList<PropertyEntry>();
 		
-		properties.add(new PropertyEntryTextBox("text", "Text:", text.replace("\n", "\\n")));
+		PropertyEntryTextBox textEntry = new PropertyEntryTextBox("text", "Text:", text.replace("\n", "\\n"));
+		properties.add(textEntry);
 		properties.add(new PropertyEntryTextBox("x", "X:", String.format("%.1f", relativePosition.x)));
 		properties.add(new PropertyEntryTextBox("y", "Y:", String.format("%.1f", relativePosition.y)));
 		properties.add(new PropertyEntrySlider("fontsize", "Font size:", 8.0, 48.0, fontsize, false, 1.0, 0.5));
+		properties.add(new PropertyEntryCheckbox("rotate", "Vertical:", rotated));
 
 		return properties;
 	}
@@ -38,6 +41,11 @@ public class Label extends DrawObject {
 	public void updateProperty(PropertyEntry property) {
 		if (property.id.equals("text")) {
 			text = ((PropertyEntryTextBox) property).dataText.replace("\\n", "\n");
+			update();
+		}
+		
+		if (property.id.equals("rotate")) {
+			rotated = ((PropertyEntryCheckbox) property).selected;
 			update();
 		}
 		
@@ -89,7 +97,10 @@ public class Label extends DrawObject {
 		for (String line : lines) {
 			PrimativeText dummy = new PrimativeText(this, line, base);
 			double xShift = (widestLine - dummy.getWidth()) / 2;
-			PrimativeText real = new PrimativeText(this, line, new Coordinate(base, new Coordinate(xShift, yShift)));
+			
+			Coordinate coordShift = rotated ? new Coordinate(yShift, -xShift) : new Coordinate(xShift, yShift);
+			PrimativeText real = new PrimativeText(this, line, new Coordinate(base, coordShift));
+			real.setRotation(rotated ? Math.PI / 2 : 0);
 			real.setFontSize(fontsize);
 			primatives.add(real);
 			yShift += dummy.getHeight();

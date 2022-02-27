@@ -13,8 +13,8 @@ public class PropertyEntryTextBox extends PropertyEntry {
 	
 	PropertyEntryTextBox self;
 	
-	JPanel producePanel(DrawObject obj) {
-		JPanel panel = new JPanel();
+	PropertyEntryPanel producePanel(DrawObject obj) {
+		PropertyEntryPanel panel = new PropertyEntryPanel();
 		GridBagLayout layout = new GridBagLayout();
 		GridBagConstraints c = new GridBagConstraints();
 		panel.setLayout(layout);
@@ -30,15 +30,79 @@ public class PropertyEntryTextBox extends PropertyEntry {
 		field.addCaretListener(new CaretListener() {
 			@Override
 			public void caretUpdate(CaretEvent e) {
-				dataText = field.getText();
-				obj.updateProperty(self);
+				obj.getCanvasParent().econogram.actionManager.add(new Action() {
+					String oldText;
+					
+					@Override
+					public boolean execute() {
+						oldText = dataText;
+						dataText = field.getText();
+						obj.updateProperty(self);
+						return true;
+					}
+
+					@Override
+					public boolean undo() {
+						dataText = oldText;
+						field.setText(oldText);
+						obj.updateProperty(self);
+						return true;
+					}
+					
+					@Override
+					public boolean redo() {
+						return execute();
+					}
+				});	
 			}
 		});
+		
+		panel.doubleClickHandler = new Action() {
+			//not actually used as an action, it's just an action type so we can store a function
+			@Override
+			public boolean execute() {
+				field.requestFocus();
+				field.selectAll();
+				return false;
+			}
+
+			@Override
+			public boolean undo() {
+				return false;
+			}
+			
+			@Override
+			public boolean redo() {
+				return false;
+			}
+		};
+		
 		field.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				dataText = field.getText();
-				obj.updateProperty(self);
+				obj.getCanvasParent().econogram.actionManager.add(new Action() {
+					String oldText;
+					
+					@Override
+					public boolean execute() {
+						oldText = dataText;
+						dataText = field.getText();
+						obj.updateProperty(self);
+						return true;
+					}
+
+					@Override
+					public boolean undo() {
+						dataText = oldText;
+						obj.updateProperty(self);
+						return true;
+					}
+					
+					@Override
+					public boolean redo() {
+						return execute();
+					}
+				});	
 			}
 		});
 				

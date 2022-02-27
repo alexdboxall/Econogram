@@ -30,6 +30,16 @@ public class Axis extends DrawObject {
 		addChild(hzAxisLabel);
 	}
 	
+	public List<PrimaryLine> getAllPrimaryLines() {
+		List<PrimaryLine> primaries = new ArrayList<PrimaryLine>();
+		for (DrawObject obj : children) {
+			if (PrimaryLine.class.isAssignableFrom(obj.getClass())) {
+				primaries.add((PrimaryLine) obj);
+			}
+		}
+		return primaries;
+	}
+	
 	public void updateProperty(PropertyEntry property) {
 		if (property.id.equals("size")) {
 			try {
@@ -52,8 +62,10 @@ public class Axis extends DrawObject {
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
 		//canvas.addObject(thisAxis) happens AFTER the constructor is called, so the children never get a canvasParent
-		vtAxisLabel.setCanvasParent(canvasParent);
 		hzAxisLabel.setCanvasParent(canvasParent);
+		vtAxisLabel.setCanvasParent(canvasParent);
+		hzArrowhead.setCanvasParent(canvasParent);
+		vtArrowhead.setCanvasParent(canvasParent);
 	}
 
 	@Override

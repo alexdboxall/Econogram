@@ -9,6 +9,26 @@ public class CanvasRightClickMenu extends RightClickMenu {
 	}
 
 	public void init() {
+		JMenuItem addPoint = new JMenuItem("Insert Point");
+		addPoint.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				econogram.createPointAtMouse(false);
+			}
+		});
+		add(addPoint); 
+		
+		JMenuItem addPoint2 = new JMenuItem("Insert Free Point");
+		addPoint2.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				econogram.createPointAtMouse(true);
+			}
+		});
+		add(addPoint2); 
+		
+		add(new JSeparator()); 
+
 		JMenuItem addLabel = new JMenuItem("Insert Label");
 		addLabel.addActionListener(new ActionListener() {
 			@Override
