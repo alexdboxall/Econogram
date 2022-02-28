@@ -42,31 +42,13 @@ public class IntersectableLine {
 			return null;
 		}
 		
-		/*
-		 * 				IntersectableLine theirNew = new IntersectableLine(new Coordinate(bx1, by1), new Coordinate(bx2, by2));
-				
-				if (ay1 > 0 && by1 > 0 && ay2 > 0 && by2 > 0 && ax1 < 350 && ax1 == bx1) {
-					System.out.printf("{{ %f, %f : %f, %f }} -> {{ %f, %f : %f, %f }} -> {%f, %f, %f, %f}\n", 
-							ax1, ay1, ax2, ay2, bx1, by1, bx2, by2, );
-					}
-				
-				//{{ 247.000000, 257.000000 : 261.000000, 243.000000 }} -> {{ 247.000000, 247.000000 : 261.000000, 261.000000 }} -> 
-				 * 
-				 * ourNew.getGradient(), theirNew.getGradient(), ourNew.getIntercept(), theirNew.getIntercept()
-				 * {-1.000000, 			1.000000, 				 504.000000, 			0.000000}
-
-		 */
-		
 		if (isVertical() && o.isVertical()) {
 			//either doesn't intersect at all, or the entire line intersects,
 			//and we don't need to support that (you would only see one line)
-			System.out.printf("VERTICAL 1\n");
 			return null;
 		}
 		
 		if (o.isVertical()) {			
-			System.out.printf("VERTICAL 2\n");
-
 			//swap around and then do it
 			return o.intersects(this);
 		}

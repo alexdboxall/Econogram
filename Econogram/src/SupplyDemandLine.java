@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.SwingUtilities;
+
 public class SupplyDemandLine extends PrimaryLine {
 
 	double gradient = -2.0;
@@ -39,7 +41,7 @@ public class SupplyDemandLine extends PrimaryLine {
 
 	@Override
 	public String getSerialisation() {
-		return String.format("%c,%f", verticalLine ? 'Y' : 'N', gradient);
+		return String.format("%c,%f,%f", verticalLine ? 'Y' : 'N', gradient, padding);
 	}
 
 	@Override
@@ -47,11 +49,13 @@ public class SupplyDemandLine extends PrimaryLine {
 		return "Supply/Demand Line";
 	}
 	
+	PropertyEntrySlider slider;
+	
 	@Override
 	public List<PropertyEntry> getPropertiesPanelLayout() {
 		ArrayList<PropertyEntry> properties = new ArrayList<PropertyEntry>();
 		
-		PropertyEntrySlider slider = new PropertyEntrySlider("gradient", "Gradient:", -3.5, 3.5, Math.sqrt(Math.abs(gradient)) * (gradient < 0 ? -1 : 1), false, 0.1, 0.1);
+		slider = new PropertyEntrySlider("gradient", "Gradient:", -3.5, 3.5, Math.sqrt(Math.abs(gradient)) * (gradient < 0 ? -1 : 1), false, 0.1, 0.1);
 		slider.textUpdateAction = new Action() {
 
 			@Override
@@ -74,6 +78,10 @@ public class SupplyDemandLine extends PrimaryLine {
 			
 		};
 		
+		if (verticalLine) {
+			slider.disabled = true;
+		}
+		
 		properties.add(new PropertyEntryTextBox("x", "X:", String.format("%.1f", relativePosition.x)));
 		properties.add(new PropertyEntryTextBox("y", "Y:", String.format("%.1f", relativePosition.y)));
 		properties.add(slider);
@@ -86,10 +94,12 @@ public class SupplyDemandLine extends PrimaryLine {
 
 	@Override
 	public void updateProperty(PropertyEntry property) {
+		slider.disabled = verticalLine;
+		
 		if (property.id.equals("gradient")) {
 			double v = Math.pow(((PropertyEntrySlider) property).value, 2.0) * (((PropertyEntrySlider) property).value < 0 ? -1 : 1);
 			sliderVal = ((PropertyEntrySlider) property).value;
-			gradient = v;//Math.round(v * 50) / 50.0;
+			gradient = v;
 			update();
 		}
 		if (property.id.equals("vertical")) {

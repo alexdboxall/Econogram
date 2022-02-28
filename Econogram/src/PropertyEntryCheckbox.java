@@ -39,6 +39,9 @@ public class PropertyEntryCheckbox extends PropertyEntry {
 						boolean changed = selected != checkBox.isSelected();
 						selected = checkBox.isSelected();
 						obj.updateProperty(self);
+						if (changed) {
+							obj.updatePropertiesPanel();
+						}
 						return changed;
 					}
 

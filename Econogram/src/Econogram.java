@@ -185,6 +185,66 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	final ActionFactory INSERT_VERTICAL_LINE = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				SupplyDemandLine addedChild;
+				
+				@Override
+				public boolean execute() {
+					addedChild = new SupplyDemandLine(new Coordinate(252.0, 252.0));
+					addedChild.gradient = 1.0;
+					addedChild.verticalLine = true;
+					return redo();
+				}
+
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	final ActionFactory INSERT_HORIZONTAL_LINE = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				SupplyDemandLine addedChild;
+				
+				@Override
+				public boolean execute() {
+					addedChild = new SupplyDemandLine(new Coordinate(252.0, 252.0));
+					addedChild.gradient = 0.0;
+					return redo();
+				}
+
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
 	final ActionFactory INSERT_DEMAND_LINE = new ActionFactory() {
 		@Override
 		public Action build() {
@@ -712,6 +772,24 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		insertMenu.add(sd2Button);
+		
+		JMenuItem hzButton = new JMenuItem("Horizontal Line");
+		hzButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				actionManager.add(INSERT_HORIZONTAL_LINE.build());	
+			}
+		});
+		insertMenu.add(hzButton);
+		
+		JMenuItem vtButton = new JMenuItem("Vertical Line");
+		vtButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				actionManager.add(INSERT_VERTICAL_LINE.build());	
+			}
+		});
+		insertMenu.add(vtButton);
 		
 		JMenuItem labelButton1 = new JMenuItem("Label");
 		labelButton1.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, Toolkit.getDefaultToolkit ().getMenuShortcutKeyMask()));

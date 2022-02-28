@@ -40,7 +40,6 @@ public class PropertyEntryColourPicker extends PropertyEntry {
 						colour = col.getRGB() & 0xFFFFFF;
 						obj.updateProperty(self);
 						obj.updatePropertiesPanel();
-						
 						return true;
 					}
 

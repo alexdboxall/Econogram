@@ -19,6 +19,8 @@ public class PropertyEntrySlider extends PropertyEntry {
 	PropertyEntrySlider self;
 	protected JLabel val;
 	
+	boolean disabled;
+	
 	public JLabel getJLabel() {
 		return val;
 	}
@@ -46,6 +48,7 @@ public class PropertyEntrySlider extends PropertyEntry {
 		slider.setMinorTickSpacing((int) minor);
 		slider.setPaintTicks(paintTicks);
 		slider.hasOldValue = false;
+		slider.setEnabled(!disabled);
 	
 		slider.addChangeListener(new ChangeListener() {
 
@@ -121,5 +124,7 @@ public class PropertyEntrySlider extends PropertyEntry {
 		this.major = 100000 * major / (max - min);
 		this.minor = 100000 * minor / (max - min);
 		this.paintTicks = snap;
+		
+		disabled = false;
 	}
 }

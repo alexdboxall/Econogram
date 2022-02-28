@@ -1,16 +1,49 @@
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class PrimaryLine extends DrawObject {
 
 	double padding = 30.0;
+	Label label;
+	double rightmostX = 0;
+	double rightmostY = 0;
+	
+	boolean firstRightmostCalculationDoneYet = false;
+	
+	double labelRelShiftX = 0;
+	double labelRelShiftY = 0;
+
+	double labelExpectedX = 0;
+	double labelExpectedY = 0;
 	
 	public PrimaryLine(Coordinate coord) {
 		super(coord);
 		
 		canDrag = false;
+		label = new Label(new Coordinate(0.0, 0.0), "L");
+		labelExpectedX = 0.0;
+		labelExpectedY = 0.0;
+		addChild(label);
 	}
 	
 	public abstract List<IntersectableLine> getLineBreakdown();
+	
+	@Override
+	public void mouseDragging(double deltaX, double deltaY) {
+		
+		super.mouseDragging(deltaX, deltaY);
+		
+		if (label != null) {
+			labelRelShiftX += label.relativePosition.x - labelExpectedX;
+			labelRelShiftY += label.relativePosition.y - labelExpectedY;
+
+			label.relativePosition.x = rightmostX + labelRelShiftX;
+			label.relativePosition.y = rightmostY + labelRelShiftY;
+			
+			labelExpectedX = label.relativePosition.x;
+			labelExpectedY = label.relativePosition.y;
+		}
+	}
 	
 	@Override
 	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {
@@ -19,7 +52,10 @@ public abstract class PrimaryLine extends DrawObject {
 
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
-		
+		if (label != null && label.canvasParent == null) {
+			label.setCanvasParent(getCanvasParent());
+			label.update();			//force calculation of the label's position
+		}
 	}
 	
 	public Coordinate intersection(PrimaryLine other) {
@@ -71,6 +107,8 @@ public abstract class PrimaryLine extends DrawObject {
 		
 		List<IntersectableLine> lines = getLineBreakdown();
 		
+		rightmostX = 0;
+		
 		for (IntersectableLine line : lines) {
 			IntersectableLine normalisedLine = line;
 			
@@ -102,6 +140,25 @@ public abstract class PrimaryLine extends DrawObject {
 			Coordinate c1 = new Coordinate(base, normalisedLine.p1);
 			Coordinate c2 = new Coordinate(base, normalisedLine.p2);
 			primatives.add(new PrimativeLine(this, c1, c2));
+			
+			if (c1.x > rightmostX) {
+				rightmostX = normalisedLine.p1.x;
+				rightmostY = normalisedLine.p1.y;
+			}
+			if (c2.x > rightmostX) {
+				rightmostX = normalisedLine.p2.x;
+				rightmostY = normalisedLine.p2.y;
+			}
+		}
+
+		if (!firstRightmostCalculationDoneYet) {
+			labelExpectedX = rightmostX + 10;
+			labelExpectedY = rightmostY - 10;
+			labelRelShiftX = 10;
+			labelRelShiftY = -10;
+			label.relativePosition.x = labelExpectedX;
+			label.relativePosition.y = labelExpectedY;
+			firstRightmostCalculationDoneYet = true;
 		}
 	}
 }
