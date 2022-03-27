@@ -16,11 +16,44 @@ public abstract class PrimaryLine extends DrawObject {
 	double labelExpectedX = 0;
 	double labelExpectedY = 0;
 	
+	int labelReloadUID = 0;
+	
+	public abstract String getDefaultLabelText();
+	
+	public abstract void copy();
+	
+	public String primaryLineDeserialisation(String data) {
+		String parts[] = data.split("@")[0].split(",");
+		
+		labelReloadUID = Integer.parseInt(parts[0]);
+		padding = Double.parseDouble(parts[1]);
+		labelRelShiftX = Double.parseDouble(parts[2]);
+		labelRelShiftY = Double.parseDouble(parts[3]);
+		labelExpectedX = Double.parseDouble(parts[4]);
+		labelExpectedY = Double.parseDouble(parts[5]);
+		firstRightmostCalculationDoneYet = parts[6].charAt(0) == '1';
+		labelExpectedY = Double.parseDouble(parts[7]);
+		labelExpectedY = Double.parseDouble(parts[8]);
+
+		return data.substring(data.split("@")[0].length() + 1);
+	}
+	
+	public String primaryLineSerialisation() {
+		return String.format("%d,%f,%f,%f,%f,%f,%d,%f,%f@", label.uniqueID, padding, labelRelShiftX, labelRelShiftY, labelExpectedX, labelExpectedY, firstRightmostCalculationDoneYet ? 1 : 0, rightmostX, rightmostY);
+	}
+	
+	public PrimaryLine(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
+		super(fullSerial, uid, canvas, parent_);
+		deserialiseTree(fullSerial);
+		
+		label = (Label) findChildWithUID(labelReloadUID);
+	}
+	
 	public PrimaryLine(Coordinate coord) {
 		super(coord);
 		
 		canDrag = false;
-		label = new Label(new Coordinate(0.0, 0.0), "L");
+		label = new Label(new Coordinate(0.0, 0.0), "");
 		labelExpectedX = 0.0;
 		labelExpectedY = 0.0;
 		addChild(label);
@@ -34,6 +67,13 @@ public abstract class PrimaryLine extends DrawObject {
 		super.mouseDragging(deltaX, deltaY);
 		
 		if (label != null) {
+			double oldLabelRelShiftX = labelRelShiftX;
+			double oldLabelRelShiftY = labelRelShiftY;
+			double oldLabelRelPosX = label.relativePosition.x;
+			double oldLabelRelPosY = label.relativePosition.y;
+			double oldLabelExpectedX = labelExpectedX;
+			double oldLabelExpectedY = labelExpectedY;
+			
 			labelRelShiftX += label.relativePosition.x - labelExpectedX;
 			labelRelShiftY += label.relativePosition.y - labelExpectedY;
 
@@ -42,6 +82,56 @@ public abstract class PrimaryLine extends DrawObject {
 			
 			labelExpectedX = label.relativePosition.x;
 			labelExpectedY = label.relativePosition.y;
+		
+			if (label.relativePosition.x != oldLabelRelPosX || label.relativePosition.y != oldLabelRelPosY) {
+				getCanvasParent().econogram.actionManager.add(new Action() {
+					double oldRelShiftX = oldLabelRelShiftX;
+					double oldRelShiftY = oldLabelRelShiftY;
+					double oldRelPosX = oldLabelRelPosX;
+					double oldRelPosY = oldLabelRelPosY;
+					double oldExpectedX = oldLabelExpectedX;
+					double oldExpectedY = oldLabelExpectedY;
+					
+					double newRelShiftX = labelRelShiftX;
+					double newRelShiftY = labelRelShiftY;
+					double newRelPosX = label.relativePosition.x;
+					double newRelPosY = label.relativePosition.y;
+					double newExpectedX = labelExpectedX;
+					double newExpectedY = labelExpectedY;
+					
+					@Override
+					boolean isFence() {
+						return false;
+					}
+					
+					@Override
+					boolean execute() {
+						return true;
+					}
+	
+					@Override
+					boolean undo() {
+						labelRelShiftX = oldRelShiftX;
+						labelRelShiftY = oldRelShiftY;
+						label.relativePosition.x = oldRelPosX;
+						label.relativePosition.y = oldRelPosY;
+						labelExpectedX = oldExpectedX;
+						labelExpectedY = oldExpectedY;
+						return true;
+					}
+	
+					@Override
+					boolean redo() {
+						labelRelShiftX = newRelShiftX;
+						labelRelShiftY = newRelShiftY;
+						label.relativePosition.x = newRelPosX;
+						label.relativePosition.y = newRelPosY;
+						labelExpectedX = newExpectedX;
+						labelExpectedY = newExpectedY;
+						return true;
+					}
+				});
+			}
 		}
 	}
 	
@@ -88,13 +178,40 @@ public abstract class PrimaryLine extends DrawObject {
 		return null;
 	}
 	
-	public List<PrimaryLine> getOverlappingPrimaryLines() {
-		List<PrimaryLine> lines = ((Axis) parent).getAllPrimaryLines();
+	public List<PrimaryLine> getOverlappingPrimaryLines(double mx, double my) {
+		List<PrimaryLine> lines = new ArrayList<PrimaryLine>();
+		
+		for (DrawObject obj : parent.getCanvasParent().children) {
+			try {
+				lines.addAll(((Axis) parent).getAllPrimaryLines());
+			} catch (Exception e) {
+				
+			}
+		}
+		
+		//((Axis) parent).getAllPrimaryLines();
+		
 		lines.remove(this);
 		
-		//TODO : remove non-overlapping lines
+		mx -= parent.getAbsolutePosition().x;
+		my -= parent.getAbsolutePosition().y;
+
+		List<PrimaryLine> overlappingLines = new ArrayList<PrimaryLine>();
+		for (PrimaryLine line : lines) {
+			if (line.intersection(this) != null && this.intersection(line) != null) {
+				if (line.intersection(this).x > 0 && line.intersection(this).y > 0) {
+					
+					double distX = Math.abs(line.intersection(this).x - mx) + 1;
+					double distY = Math.abs(line.intersection(this).y - my) + 1;
+										
+					if (Math.sqrt(distX * distX + distY * distY) < 85) {
+						overlappingLines.add(line);
+					}
+				}
+			}
+		}
 		
-		return lines;
+		return overlappingLines;
 	}
 	
 	@Override
@@ -139,7 +256,9 @@ public abstract class PrimaryLine extends DrawObject {
 			
 			Coordinate c1 = new Coordinate(base, normalisedLine.p1);
 			Coordinate c2 = new Coordinate(base, normalisedLine.p2);
-			primatives.add(new PrimativeLine(this, c1, c2));
+			PrimativeLine pl = new PrimativeLine(this, c1, c2);
+			pl.colour = 0x004080;
+			primatives.add(pl);
 			
 			if (c1.x > rightmostX) {
 				rightmostX = normalisedLine.p1.x;
@@ -159,6 +278,7 @@ public abstract class PrimaryLine extends DrawObject {
 			label.relativePosition.x = labelExpectedX;
 			label.relativePosition.y = labelExpectedY;
 			firstRightmostCalculationDoneYet = true;
+			label.text = getDefaultLabelText();
 		}
 	}
 }

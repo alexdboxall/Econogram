@@ -95,8 +95,7 @@ public class PropertyEntrySlider extends PropertyEntry {
 		});
 		
 		val.setText(String.format("%.1f", ((double) slider.getValue()) / 100000.0 * (max - min) + min));
-		if (textUpdateAction != null) {
-			System.out.printf("!! 1\n");
+		if (textUpdateAction != null && !disabled) {
 			textUpdateAction.execute();
 		}
 		c.gridx = 0;

@@ -26,11 +26,59 @@ public class Arrowhead extends DrawObject {
 	protected int outlineColour;
 	protected double outlineWidth;
 	
+	boolean hide = false;
+	
 	protected double angle;
+	
+	public Arrowhead(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
+		super(fullSerial, uid, canvas, parent_);
+		deserialiseTree(fullSerial);
+	}
+	
+	public Arrowhead(Coordinate relativePos, BuiltinStyle style, double angle) {
+		super(relativePos);
+		
+		canDrag = false;
+		
+		this.angle = angle;
+
+		//set the properties based on the style given
+		switch (style) {
+		case Outline:
+			width = 20.0f;
+			height = SQRT_3 * 10.0f;
+			outlineWidth = 2.0f;
+			fillColour = COLOUR_WHITE;
+			outlineColour = COLOUR_BLACK;
+			break;
+			
+		case Normal:
+		default:
+			width = 20.0f;
+			height = SQRT_3 * 10.0f;
+			outlineWidth = 0.0f;
+			fillColour = COLOUR_BLACK;
+			outlineColour = COLOUR_BLACK;
+			break;
+		}
+	}
+	
+	@Override
+	public void reloadOnDeserialisation(String data) {
+		String parts[] = data.split(",");
+		
+		width = Double.parseDouble(parts[0]);
+		height = Double.parseDouble(parts[1]);
+		outlineWidth = Double.parseDouble(parts[2]);
+		fillColour = Integer.parseInt(parts[3]);
+		outlineColour = Integer.parseInt(parts[4]);
+		angle = Double.parseDouble(parts[5]);
+		hide = parts[6].charAt(0) == 'T';
+	}
 	
 	@Override
 	public String getSerialisation() {
-		return String.format("%f,%f,%f,%d,%d,%f", width, height, outlineWidth, fillColour, outlineColour, angle);
+		return String.format("%f,%f,%f,%d,%d,%f,%c", width, height, outlineWidth, fillColour, outlineColour, angle, hide ? 'T' : 'F');
 	}
 	
 	public enum BuiltinStyle {
@@ -92,37 +140,9 @@ public class Arrowhead extends DrawObject {
 		properties.add(new PropertyEntryColourPicker("outlinecol", "Outline colour: ", outlineColour));
 		properties.add(new PropertyEntrySlider		("outlinewidth", "Outline width: ", 0.0, 10.0, outlineWidth, false, 1.0, 0.5));
 		properties.add(new PropertyEntrySlider		("width", "Arrow size: ", 5.0, 50.0, width, false, 5.0, 0.5));
-		properties.add(new PropertyEntrySlider		("angle"	 , "Angle: ", 0.0, 360.0, ang, true, 90.0, 45.0));
+		properties.add(new PropertyEntrySlider		("angle"	 , "Angle: ", 0.0, 360.0, ang, false, 5.0, 2.5));
 
 		return properties;
-	}
-	
-	public Arrowhead(Coordinate relativePos, BuiltinStyle style, double angle) {
-		super(relativePos);
-		
-		canDrag = false;
-		
-		this.angle = angle;
-
-		//set the properties based on the style given
-		switch (style) {
-		case Outline:
-			width = 20.0f;
-			height = SQRT_3 * 10.0f;
-			outlineWidth = 2.0f;
-			fillColour = COLOUR_WHITE;
-			outlineColour = COLOUR_BLACK;
-			break;
-			
-		case Normal:
-		default:
-			width = 20.0f;
-			height = SQRT_3 * 10.0f;
-			outlineWidth = 0.0f;
-			fillColour = COLOUR_BLACK;
-			outlineColour = COLOUR_BLACK;
-			break;
-		}
 	}
 	
 	//throws an exception if a colour value is not in range,
@@ -170,6 +190,37 @@ public class Arrowhead extends DrawObject {
 		}
 	}
 	
+	@Override
+	public void mouseDragging(double deltaX, double deltaY) {
+		if (canDrag) {
+			Arrow arrowParent = (Arrow) parent;
+			
+			if (this == arrowParent.arrowhead) {
+				double xPos = relativePosition.x + deltaX;
+				double yPos = relativePosition.y + deltaY;
+
+				arrowParent.angle = Math.atan2(yPos, xPos);
+				arrowParent.length = Math.sqrt(xPos * xPos + yPos * yPos);
+				
+				arrowParent.updateArrowheads();
+			
+			} else {
+				double xPos = arrowParent.length * Math.cos(arrowParent.angle) + relativePosition.x - deltaX;
+				double yPos = arrowParent.length * Math.sin(arrowParent.angle) + relativePosition.y - deltaY;
+
+				arrowParent.relativePosition.x += deltaX;
+				arrowParent.relativePosition.y += deltaY;
+				
+				arrowParent.length = Math.sqrt(xPos * xPos + yPos * yPos);
+				arrowParent.angle = Math.atan2(yPos, xPos);
+
+				arrowParent.updateArrowheads();
+			}
+		}
+		
+		update();
+	}
+	
 	public void setHeight(double newHeight) {
 		height = newHeight;
 		
@@ -182,8 +233,18 @@ public class Arrowhead extends DrawObject {
 		}
 	}
 
+	static public double roundToNearest(double val, double incr) {
+		return incr * Math.round(val / incr);
+	}
+	
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
+		if (hide) {
+			return;
+		}
+				
+		canDrag = parent.objectType3DigitID().equals("ARR");
+		
 		Coordinate c1 = new Coordinate(base.x + width / 2 * Math.cos(-angle + Math.PI / 2), base.y + width / 2 * Math.sin(-angle + Math.PI / 2));
 		Coordinate c2 = new Coordinate(base.x + height * Math.cos(-angle), base.y + height * Math.sin(-angle));
 		Coordinate c3 = new Coordinate(base.x + width / 2 * Math.cos(-angle - Math.PI / 2), base.y + width / 2 * Math.sin(-angle - Math.PI / 2));
@@ -203,5 +264,10 @@ public class Arrowhead extends DrawObject {
 	@Override
 	public void addDrawPrimativesPostChild(Coordinate base, List<DrawPrimative> primatives) {
 		
+	}
+
+	@Override
+	public String objectType3DigitID() {
+		return "ARH";
 	}
 }

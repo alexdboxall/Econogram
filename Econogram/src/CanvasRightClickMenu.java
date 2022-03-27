@@ -46,5 +46,25 @@ public class CanvasRightClickMenu extends RightClickMenu {
 			}
 		});
 		add(addLabel2); 
+		
+		add(new JSeparator()); 
+
+		JMenuItem arrowLabel = new JMenuItem("Insert Arrow");
+		arrowLabel.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				econogram.createArrowAtMouse(false);
+			}
+		});
+		add(arrowLabel); 
+		
+		JMenuItem arrowLabel2 = new JMenuItem("Insert Free Arrow");
+		arrowLabel2.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				econogram.createArrowAtMouse(true);
+			}
+		});
+		add(arrowLabel2); 
 	}
 }

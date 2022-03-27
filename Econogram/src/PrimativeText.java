@@ -13,7 +13,7 @@ public class PrimativeText extends DrawPrimative {
 	protected double prevHeight;
 	
 	protected double radians = 0;
-	
+
 	public double getRotation(double radians) {
 		return radians;
 	}
@@ -25,7 +25,17 @@ public class PrimativeText extends DrawPrimative {
 	public void setFontSize(double size) {
 		this.size = size;
 		
-		prevWidth = text.length() * size / 2;
+		Graphics g = getParent().getCanvasParent().getGraphics();
+
+		Graphics2D internalGraphics2D = (Graphics2D) g;
+
+		Font normalFont = new Font("Arial", Font.PLAIN, (int) (size * getParent().getCanvasParent().zoomPanSettings.zoom));
+		AffineTransform affineTransform = new AffineTransform();
+		affineTransform.rotate(-radians, 0, 0);
+		Font rotatedFont = normalFont.deriveFont(affineTransform);
+		internalGraphics2D.setFont(rotatedFont);
+		internalGraphics2D.setColor(new Color(parent.isSelected() ? 0xFF5500 : colour));
+		prevWidth = internalGraphics2D.getFontMetrics().stringWidth(text);
 		prevHeight = size;
 	}
 	
@@ -34,11 +44,9 @@ public class PrimativeText extends DrawPrimative {
 
 		pos = position;
 		colour = 0x000000;
-		size = 20.0;
 		text = string;
 		
-		prevWidth = string.length() * size / 2;
-		prevHeight = size;
+		setFontSize(20.0);
 	}
 	
 	@Override

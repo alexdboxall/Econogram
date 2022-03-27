@@ -25,7 +25,7 @@ public class IntersectableLine {
 	{
 	    if (l1.x == r1.x || l1.y == r1.y || l2.x == r2.x|| l2.y == r2.y) {
 	        // the line cannot have positive overlap
-	        //return false;
+	        return false;
 	    }
 	 
 	    if (l1.x > r2.x || l2.x > r1.x)
@@ -38,15 +38,12 @@ public class IntersectableLine {
 	}
 	
 	Coordinate intersects(IntersectableLine o) {
-		if (!overlaps(p1, p2, o.p1, o.p2)) {
-			return null;
-		}
-		
 		if (isVertical() && o.isVertical()) {
 			//either doesn't intersect at all, or the entire line intersects,
 			//and we don't need to support that (you would only see one line)
 			return null;
 		}
+		
 		
 		if (o.isVertical()) {			
 			//swap around and then do it
@@ -54,10 +51,13 @@ public class IntersectableLine {
 		}
 		
 		if (isVertical()) {			
-			System.out.printf("VERTICAL 3\n");
-
 			return new Coordinate(p1.x, p1.x * o.getGradient() + o.getIntercept());
 		}
+		
+		if (!overlaps(p1, p2, o.p1, o.p2)) {
+			return null;
+		}
+		
 		
 		double ix = (o.getIntercept() - getIntercept()) / (getGradient() - o.getGradient());
 		return new Coordinate(ix, ix * getGradient() + getIntercept());

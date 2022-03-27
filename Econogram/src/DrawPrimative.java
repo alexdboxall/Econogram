@@ -12,6 +12,14 @@ public abstract class DrawPrimative {
 		return parent;
 	}
 	
+	public double getHeightGivenPosition(double x, double y) {
+		return getHeight();
+	}
+	
+	public double getWidthGivenPosition(double x, double y) {
+		return getWidth();
+	}
+	
 	abstract public double getX();
 	abstract public double getY();
 	abstract public void draw(Graphics g, ZoomPanSettings settings);

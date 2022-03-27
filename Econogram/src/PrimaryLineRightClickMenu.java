@@ -31,9 +31,15 @@ public class PrimaryLineRightClickMenu extends RightClickMenu {
 		});
 		add(addPoint); 
 		
-		List<PrimaryLine> overlaps = ((PrimaryLine) object).getOverlappingPrimaryLines();
+		List<PrimaryLine> overlaps = ((PrimaryLine) object).getOverlappingPrimaryLines(econogram.trueMouseDownX, econogram.trueMouseDownY);
 		for (PrimaryLine overlappingLine : overlaps) {
-			JMenuItem addPoint2 = new JMenuItem("Create Point at Intersection");
+			String itext = "Create Point at Intersection";
+			
+			if (overlappingLine.label != null && ((PrimaryLine) object).label != null) {
+				itext = String.format("Create Point at Intersection of %s and %s", ((PrimaryLine) object).label.text.replace("^", ""), overlappingLine.label.text.replace("^", ""));
+			}
+			
+			JMenuItem addPoint2 = new JMenuItem(itext);
 			addPoint2.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {					
@@ -42,7 +48,7 @@ public class PrimaryLineRightClickMenu extends RightClickMenu {
 
 						@Override
 						public boolean execute() {
-							addedChild = new CalculatedPoint(overlappingLine, (PrimaryLine) object);
+							addedChild = new CalculatedPoint(overlappingLine, (PrimaryLine) object, econogram.primaryAxis);
 							econogram.primaryAxis.addChild(addedChild);
 							econogram.canvas.repaint();
 							
@@ -62,6 +68,41 @@ public class PrimaryLineRightClickMenu extends RightClickMenu {
 				}
 			});
 			add(addPoint2); 
+		}
+		
+		PrimaryLine line = (PrimaryLine) object;
+		if (line.label == null || line.label.parent == null || !line.children.contains(line.label)) {
+			add(new JSeparator());
+
+			JMenuItem reintroduceLabel = new JMenuItem("Reintroduce Label");
+			reintroduceLabel.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					econogram.actionManager.add(new Action() {
+						@Override
+						public boolean execute() {
+							line.addChild(line.label);
+							line.getCanvasParent().repaint();
+							return true;
+						}
+				
+						@Override
+						public boolean undo() {
+							line.label.delete();
+							line.getCanvasParent().repaint();
+							return true;
+						}
+						
+						@Override
+						public boolean redo() {
+							line.addChild(line.label);
+							line.getCanvasParent().repaint();
+							return false;
+						}
+					});
+				}
+			});
+			add(reintroduceLabel); 
 		}
 	}
 }

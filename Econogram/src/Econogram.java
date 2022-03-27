@@ -1,9 +1,14 @@
+
 import java.awt.*;
 import java.awt.event.*;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
@@ -28,6 +33,14 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	double panOnMouseDownX;
 	double panOnMouseDownY;
 	DrawObject draggingObject;
+	boolean lineShiftMode = false;
+	boolean verticalShiftMode = false;
+	double trueMouseDownY;
+	double trueMouseDownX;
+	double mouseMoveX;
+	double mouseMoveY;
+	
+	MainToolbar mainToolbar;
 	
 	Canvas canvas;
 	Axis primaryAxis;
@@ -35,12 +48,228 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	
 	JScrollBar hzScrollBar;
 	JScrollBar vtScrollBar;
-
+	
+	JMenuItem showGridlines;
+	JMenuItem showPrimaryHint;
 	JMenuItem showHideParentGuides;
 	JSlider zoomSlider;
 	JMenu dummyMenu;
 	
 	Random rng;
+	
+	final ActionFactory PRINT_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean execute() {
+					canvas.print();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	final ActionFactory EXPORT_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean execute() {
+					export();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory REDO_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean execute() {
+					actionManager.redo();
+					mainToolbar.updateToolbarEnabledStatus();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory UNDO_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean execute() {
+					actionManager.undo();
+					mainToolbar.updateToolbarEnabledStatus();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory FENCING_NOP_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean isFence() {
+					return true;
+				}
+				
+				@Override
+				boolean execute() {
+					return true;
+				}
+
+				@Override
+				boolean undo() {
+					return true;
+				}
+
+				@Override
+				boolean redo() {
+					return true;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory NOP_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				@Override
+				boolean execute() {
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory NEW_DOCUMENT_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+
+				@Override
+				boolean execute() {
+					Econogram.main(null);
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory OPEN_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+
+				@Override
+				boolean execute() {
+					open();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
+	
+	final ActionFactory SAVE_ACTION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+
+				@Override
+				boolean execute() {
+					save();
+					return false;
+				}
+
+				@Override
+				boolean undo() {
+					return false;
+				}
+
+				@Override
+				boolean redo() {
+					return false;
+				}				
+			};
+		}
+	};
 	
 	final ActionFactory DELETE_SELECTED_OBJECT = new ActionFactory() {
 		@Override
@@ -87,18 +316,59 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
-	
-	final ActionFactory INSERT_FREE_LABEL_AT_RANDOM_POSITION = new ActionFactory() {
+	final ActionFactory INSERT_FREE_POINT_WITHOUT_POSITION = new ActionFactory() {
 		@Override
 		public Action build() {
 			return new Action() {
-				int rand1 = getRandomInt(350);
-				int rand2 = getRandomInt(250);
+				double rand1 = getRandomInt(350) + 250.0;
+				double rand2 = getRandomInt(250) + 100.0;
+				Point addedChild;
+				
+				@Override
+				public boolean execute() {
+					if (mouseMoveX > 0 && mouseMoveY > 0) {
+						rand1 = (mouseMoveX + canvas.getPanX()) / canvas.getZoom();
+						rand2 = (mouseMoveY + canvas.getPanY()) / canvas.getZoom();
+					}
+					
+					addedChild = new Point(new Coordinate(rand1, rand2));
+					return redo();
+				}
+
+
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					canvas.addObject(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
+	final ActionFactory INSERT_FREE_LABEL_WITHOUT_POSITION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				double rand1 = getRandomInt(350) + 250.0;
+				double rand2 = getRandomInt(250) + 100.0;
 				Label addedChild;
 				
 				@Override
 				public boolean execute() {
-					addedChild = new Label(new Coordinate(250.0 + rand1, 100.0 + rand2), "New free label");
+					if (mouseMoveX > 0 && mouseMoveY > 0) {
+						rand1 = (mouseMoveX + canvas.getPanX()) / canvas.getZoom();
+						rand2 = (mouseMoveY + canvas.getPanY()) / canvas.getZoom();
+					}
+					
+					addedChild = new Label(new Coordinate(rand1, rand2), "New free label");
 					return redo();
 				}
 
@@ -119,6 +389,10 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	boolean canSetPrimaryAxis() {
+		return (propertiesPanel.object != null && propertiesPanel.object.getClass() == (new Axis(new Coordinate(0.0, 0.0))).getClass() && canvas.children.contains(primaryAxis));
+	}
+	
 	final ActionFactory SET_PRIMARY_AXIS = new ActionFactory() {
 		@Override
 		public Action build() {
@@ -135,7 +409,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 						return true;
 					} else {
 						JOptionPane.showMessageDialog(frame, "Please select an axis first.", "No axis selected", JOptionPane.ERROR_MESSAGE);
-						return true;
+						return false;
 					}
 				}
 				
@@ -154,17 +428,91 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
-	final ActionFactory INSERT_BOUND_LABEL_AT_RANDOM_POSITION = new ActionFactory() {
+	final ActionFactory INSERT_BOUND_POINT_WITHOUT_POSITION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				Point addedChild;
+				double rand1 = getRandomInt(350) + 250.0;
+				double rand2 = getRandomInt(250) + 100.0;
+				
+				@Override
+				public boolean execute() {
+					if (mouseMoveX > 0 && mouseMoveY > 0) {
+						rand1 = (mouseMoveX + canvas.getPanX()) / canvas.getZoom();
+						rand2 = (mouseMoveY + canvas.getPanY()) / canvas.getZoom();
+					}
+					addedChild = new Point(new Coordinate(rand1, rand2));
+					return redo();
+				}
+		
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
+	final ActionFactory INSERT_BOUND_ARROW_WITHOUT_POSITION = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				Arrow addedChild;
+				double rand1 = getRandomInt(350) + 250.0;
+				double rand2 = getRandomInt(250) + 100.0;
+				
+				@Override
+				public boolean execute() {
+					if (mouseMoveX > 0 && mouseMoveY > 0) {
+						rand1 = (mouseMoveX + canvas.getPanX()) / canvas.getZoom() - primaryAxis.relativePosition.x;
+						rand2 = (mouseMoveY + canvas.getPanY()) / canvas.getZoom() - primaryAxis.relativePosition.y;
+					}
+					addedChild = new Arrow(new Coordinate(rand1, rand2), 100.0, 0.0);
+					return redo();
+				}
+		
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
+	final ActionFactory INSERT_BOUND_LABEL_WITHOUT_POSITION = new ActionFactory() {
 		@Override
 		public Action build() {
 			return new Action() {
 				Label addedChild;
-				int rand1 = getRandomInt(350);
-				int rand2 = getRandomInt(250);
+				double rand1 = getRandomInt(350) + 250.0;
+				double rand2 = getRandomInt(250) + 100.0;
 				
 				@Override
 				public boolean execute() {
-					addedChild = new Label(new Coordinate(250.0 + rand1, 100.0 + rand2), "New bound label");
+					if (mouseMoveX > 0 && mouseMoveY > 0) {
+						rand1 = (mouseMoveX + canvas.getPanX()) / canvas.getZoom() - primaryAxis.relativePosition.x;
+						rand2 = (mouseMoveY + canvas.getPanY()) / canvas.getZoom() - primaryAxis.relativePosition.y;
+					}
+					addedChild = new Label(new Coordinate(rand1, rand2), "New bound label");
 					return redo();
 				}
 		
@@ -190,11 +538,11 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		public Action build() {
 			return new Action() {
 				SupplyDemandLine addedChild;
-				
+				int rand1 = getPseudoRandomPositionBasedOnCount(lrasLabelCounter);
+
 				@Override
 				public boolean execute() {
-					addedChild = new SupplyDemandLine(new Coordinate(252.0, 252.0));
-					addedChild.gradient = 1.0;
+					addedChild = new SupplyDemandLine(new Coordinate(252.0 + rand1, 252.0 + rand1), 1.0, true);
 					addedChild.verticalLine = true;
 					return redo();
 				}
@@ -220,11 +568,11 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		public Action build() {
 			return new Action() {
 				SupplyDemandLine addedChild;
-				
+				int rand1 = getPseudoRandomPositionBasedOnCount(hzLineLabelCounter);
+
 				@Override
 				public boolean execute() {
-					addedChild = new SupplyDemandLine(new Coordinate(252.0, 252.0));
-					addedChild.gradient = 0.0;
+					addedChild = new SupplyDemandLine(new Coordinate(252.0 + rand1, 252.0 + rand1), 0.0, false);
 					return redo();
 				}
 
@@ -245,16 +593,70 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	int lrasLabelCounter = 0;
+	int hzLineLabelCounter = 0;
+	int demandLineLabelCounter = 0;
+	int supplyLineLabelCounter = 0;
+	
+	int getPseudoRandomPositionBasedOnCount(int count) {
+		switch (count) {
+		case 0:
+			return 0;
+		case 1:
+			return 42;
+		case 2:
+			return -42;
+		case 3:
+			return -82;
+		case 4:
+			return 82;
+		default:
+			return getRandomInt(40) * 6 - 120;
+		}
+	}
+	
 	final ActionFactory INSERT_DEMAND_LINE = new ActionFactory() {
 		@Override
 		public Action build() {
 			return new Action() {
 				SupplyDemandLine addedChild;
-				
+				int rand1 = getPseudoRandomPositionBasedOnCount(demandLineLabelCounter);
+
 				@Override
 				public boolean execute() {
-					addedChild = new SupplyDemandLine(new Coordinate(252.0, 252.0));
-					addedChild.gradient = -1.0;
+					addedChild = new SupplyDemandLine(new Coordinate(0.0 + rand1 * 2, 0.0), 1.0, false);
+					return redo();
+				}
+
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
+	final ActionFactory INSERT_KEYNESIAN_LINE = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				KeynesianLRAS addedChild;
+				
+				int rand1 = getRandomInt(36) * 6 - 36;
+				int rand2 = getRandomInt(36) * 6 - 36;
+
+				@Override
+				public boolean execute() {
+					addedChild = new KeynesianLRAS(new Coordinate(252.0 + rand1, 252.0 + rand2), 120.0);
 					return redo();
 				}
 
@@ -280,11 +682,11 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		public Action build() {
 			return new Action() {
 				SupplyDemandLine addedChild;
-				
+				int rand1 = getPseudoRandomPositionBasedOnCount(supplyLineLabelCounter);
+
 				@Override
 				public boolean execute() {
-					addedChild = new SupplyDemandLine(new Coordinate(0.0, 0.0));
-					addedChild.gradient = 1.0;
+					addedChild = new SupplyDemandLine(new Coordinate(252.0 + rand1, 252.0 + rand1), -1.0, false);
 					return redo();
 				}
 
@@ -313,7 +715,9 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				
 				@Override
 				public boolean execute() {
-					addedChild = new Axis(new Coordinate(250.0 + getRandomInt(350), 100.0 + getRandomInt(250)));
+					int rand1 = (getRandomInt(350) / 12) * 12;
+					int rand2 = (getRandomInt(250) / 12) * 12;
+					addedChild = new Axis(new Coordinate(252.0 + rand1, 96.0 + rand2));
 					return redo();
 				}
 
@@ -366,6 +770,38 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	final ActionFactory INSERT_BOUND_ARROW_AT_MOUSE = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				Arrow addedChild;
+				double x;
+				double y;
+				@Override
+				public boolean execute() {
+					x = (mouseDownX + canvas.getPanX()) / canvas.getZoom() - primaryAxis.relativePosition.x;
+					y = (mouseDownY + canvas.getPanY()) / canvas.getZoom() - primaryAxis.relativePosition.y;
+					return redo();
+				}
+
+				@Override
+				public boolean undo() {
+					addedChild.delete();
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					addedChild = new Arrow(new Coordinate((int) x, (int) y), 100.0, 0.0);
+					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
 	final ActionFactory INSERT_BOUND_LABEL_AT_MOUSE = new ActionFactory() {
 		@Override
 		public Action build() {
@@ -391,6 +827,39 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				public boolean redo() {
 					addedChild = new Label(new Coordinate((int) x, (int) y), "New bound label");
 					primaryAxis.addChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+			};
+		}
+	};
+	
+	final ActionFactory INSERT_FREE_ARROW_AT_MOUSE = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				Arrow addedChild;
+				double x;
+				double y;
+				
+				@Override
+				public boolean execute() {
+					x = (mouseDownX + canvas.getPanX()) / canvas.getZoom();
+					y = (mouseDownY + canvas.getPanY()) / canvas.getZoom();
+					return redo();
+				}
+
+				@Override
+				public boolean undo() {
+					canvas.deleteChild(addedChild);
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					addedChild = new Arrow(new Coordinate((int) x, (int) y), 100.0, 0.0);
+					canvas.addObject(addedChild);
 					canvas.repaint();
 					return true;
 				}
@@ -464,6 +933,63 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	boolean canIntersectRecentlyAddedLines() {
+		List<DrawObject> children = primaryAxis.children;
+		try {
+			PrimaryLine line1 = (PrimaryLine) children.get(children.size() - 1);
+			PrimaryLine line2 = (PrimaryLine) children.get(children.size() - 2);
+			
+			if (line1.intersection(line2) != null && line2.intersection(line1) != null) {
+				return true;
+			}
+			
+		} catch (Exception e) {
+			
+		}
+		return false;
+	}
+	
+	final ActionFactory INTERSECT_RECENTLY_ADDED_LINES = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {
+				Point addedChild;
+
+				@Override
+				public boolean execute() {
+					List<DrawObject> children = primaryAxis.children;
+					try {
+						PrimaryLine line1 = (PrimaryLine) children.get(children.size() - 1);
+						PrimaryLine line2 = (PrimaryLine) children.get(children.size() - 2);
+						
+						if (line1.intersection(line2) != null && line2.intersection(line1) != null) {
+							addedChild = new CalculatedPoint(line1, line2, primaryAxis);
+							primaryAxis.addChild(addedChild);
+							canvas.repaint();
+							return true;
+						}
+
+					} catch (Exception e) {
+						
+					}
+					return false;
+				}
+
+				@Override
+				public boolean undo() {
+					System.out.printf("UNIMPLEMENTED: INTERSECT_RECENTLY_ADDED_LINES.undo()\n");
+					return false;
+				}
+				
+				@Override
+				public boolean redo() {
+					System.out.printf("UNIMPLEMENTED: INTERSECT_RECENTLY_ADDED_LINES.redo()\n");
+					return false;
+				}
+			};
+		}
+	};
+	
 	final ActionFactory HIDE_PARENT_GUIDES = new ActionFactory() {
 		@Override
 		public Action build() {
@@ -520,6 +1046,118 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	};
 	
+	final ActionFactory HIDE_GRIDLINES = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {				
+				@Override
+				public boolean undo() {
+					canvas.showGrid(true);
+					showGridlines.setText("Hide gridlines");
+					canvas.repaint();
+					return true;
+				}
+
+				@Override
+				public boolean execute() {
+					canvas.showGrid(false);
+					showGridlines.setText("Show gridlines");
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					return execute();
+				}
+			};
+		}
+	};
+	
+	final ActionFactory HIDE_PRIMARY_AXIS_HINT = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {				
+				@Override
+				public boolean undo() {
+					canvas.showPrimaryAxisHint(true);
+					showPrimaryHint.setText("Hide primary axis hint");
+					canvas.repaint();
+					return true;
+				}
+
+				@Override
+				public boolean execute() {
+					canvas.showPrimaryAxisHint(false);
+					showPrimaryHint.setText("Show primary axis hint");
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					return execute();
+				}
+			};
+		}
+	};
+	
+	final ActionFactory SHOW_PRIMARY_AXIS_HINT = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {				
+				@Override
+				public boolean execute() {
+					canvas.showPrimaryAxisHint(true);
+					showPrimaryHint.setText("Hide primary axis hint");
+					canvas.repaint();
+					return true;
+				}
+
+				@Override
+				public boolean undo() {
+					canvas.showPrimaryAxisHint(false);
+					showPrimaryHint.setText("Show primary axis hint");
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					return execute();
+				}
+			};
+		}
+	};
+	
+	final ActionFactory SHOW_GRIDLINES = new ActionFactory() {
+		@Override
+		public Action build() {
+			return new Action() {				
+				@Override
+				public boolean execute() {
+					canvas.showGrid(true);
+					showGridlines.setText("Hide gridlines");
+					canvas.repaint();
+					return true;
+				}
+
+				@Override
+				public boolean undo() {
+					canvas.showGrid(false);
+					showGridlines.setText("Show gridlines");
+					canvas.repaint();
+					return true;
+				}
+				
+				@Override
+				public boolean redo() {
+					return execute();
+				}
+			};
+		}
+	};
+	
 	void createPointAtMouse(boolean free) {
 		if (free) {
 			actionManager.add(INSERT_FREE_POINT_AT_MOUSE.build());
@@ -529,6 +1167,15 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 		
 		canvas.repaint();
+	}
+	
+	void createArrowAtMouse(boolean free) {
+		if (free) {
+			actionManager.add(INSERT_FREE_ARROW_AT_MOUSE.build());
+			
+		} else {
+			actionManager.add(INSERT_BOUND_ARROW_AT_MOUSE.build());
+		}
 	}
 	
 	void createLabelAtMouse(boolean free) {
@@ -557,13 +1204,59 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		vtScrollBar.setVisibleAmount((int)((canvas.getHeight() / canvas.getZoom()) / (canvas.getUsedHeight() * canvas.getZoom()) * 1000 / canvas.getZoom()));
 	}
 	
-	void performSavableAction() {
+	void performedAction() {
+		mainToolbar.updateToolbarEnabledStatus();
 		unsavedChanges = true;
 		updateTitle();
 	}
 	
 	String compressSerialisedText(String text) {
-		return text.replace("`", "``").replace("000", "`3").replace("`3`3", "`6").replace(".`6,", "`.").replace(";>>", "`>");
+		String header = "0001";
+		String compressed = text.replace(" ", "  ").replace("\n", " N").replace("\r", " R").replace("\t", " T").replace(".000000", " 0");
+		header += compressed.length();
+		header += ";";
+
+		int hash = 7;
+		for (int i = 0; i < compressed.length(); i++) {
+		    hash = hash * 31 + compressed.charAt(i);
+		} 
+		
+		header += hash;
+		
+		return String.format("Econogram! %04d%s%s", header.length(), header, compressed);
+	}
+	
+	String decompressSerialisedText(String text) {
+		if (!text.startsWith("Econogram! ")) {
+			return "";
+		}
+		text = text.substring(11);
+		int headerLength = Integer.parseInt(text.substring(0, 4));
+		text = text.substring(headerLength + 4);
+		return text.replace(" 0", ".000000").replace(" T", "\t").replace(" R", "\r").replace(" N", "\n").replace("  ", " ");
+	}
+	
+	void export() {
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setDialogTitle("Export...");
+		
+		fileChooser.setFileFilter(new FileNameExtensionFilter("*.png", "PNG File"));
+		
+		if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+
+			String path = fileChooser.getSelectedFile().getAbsolutePath();
+
+			if (!path.toLowerCase().endsWith(".png")) {
+				path += ".png";
+			}		
+			
+			try {
+				canvas.export(path);
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	void save() {
@@ -592,12 +1285,57 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			JOptionPane.showMessageDialog(frame, "An error occured while saving, and thus the file could not be saved.", "Could not save", JOptionPane.ERROR_MESSAGE);
 			
 		}
-		
 				
 		System.out.printf("%s\n", serial);
 				
 		unsavedChanges = false;
 		updateTitle();
+	}
+	
+	void open() {
+		if (unsavedChanges) {
+			//show alert: about saving before closing
+		}
+		
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setDialogTitle("Open...");
+		
+		fileChooser.setFileFilter(new FileNameExtensionFilter("*.edi", "Econogram Diagram"));
+		
+		if (fileChooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+			
+			String path = fileChooser.getSelectedFile().getAbsolutePath();
+			filename = fileChooser.getSelectedFile().getName();
+
+			if (!path.toLowerCase().endsWith(".edi")) {
+				filename += ".edi";
+				path += ".edi";
+			}
+			
+			filepath = path;
+			unsavedChanges = false;
+			
+			FileInputStream in;
+			try {
+				in = new FileInputStream(filepath);
+				byte[] data = in.readAllBytes();
+				in.close();
+				
+				frame.remove(canvas);
+				Canvas newCanvas = new Canvas(decompressSerialisedText(new String(data, "UTF-8")));
+				newCanvas.econogram = new Econogram(frame, newCanvas);
+				
+			} catch (FileNotFoundException e) {
+				JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Could not open", JOptionPane.ERROR_MESSAGE);
+				
+			} catch (IOException e) {
+				JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Could not open", JOptionPane.ERROR_MESSAGE);
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+				JOptionPane.showMessageDialog(frame, "The file is either not an Econogram file, or is corrupt.", "Could not open", JOptionPane.ERROR_MESSAGE);
+			}
+		}
 	}
 	
 	void saveAs() {
@@ -682,6 +1420,38 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		viewMenu.add(showHideParentGuides);
+		
+		showGridlines = new JMenuItem(canvas.isShowingParentGuides() ? "Hide gridlines" : "Show gridlines");
+		showGridlines.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (canvas.isShowingGrid()) {
+					actionManager.add(HIDE_GRIDLINES.build());
+
+				} else {
+					actionManager.add(SHOW_GRIDLINES.build());
+				}
+				canvas.repaint();
+			}
+		});
+		viewMenu.add(showGridlines);
+		
+		showPrimaryHint = new JMenuItem(canvas.isShowingParentGuides() ? "Hide primary axis hint" : "Show primary axis hint");
+		showPrimaryHint.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (canvas.isShowingPrimaryAxisHint()) {
+					actionManager.add(HIDE_PRIMARY_AXIS_HINT.build());
+
+				} else {
+					actionManager.add(SHOW_PRIMARY_AXIS_HINT.build());
+				}
+				canvas.repaint();
+			}
+		});
+		viewMenu.add(showPrimaryHint);
+		
+		//
 	}
 	
 	void addHelpMenuBar(JMenuBar menu) {
@@ -712,6 +1482,63 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		helpMenu.add(aboutBtn);
+		
+		JMenuItem aboutBtn2 = new JMenuItem("Copyright Notices               ");
+		aboutBtn2.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				JPanel mainPanel = new JPanel();
+
+				JTextArea area = new JTextArea(30, 120);
+			    JScrollPane scrollPane = new JScrollPane (area);
+			    scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+			    scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+			 				
+				String copyrightText = "";
+				
+				String licenseData[][] = {
+						{"src/licensing/ICON COPYRIGHT", "the Silk Icon Set 1.3 by Mark James"},
+					};
+				
+				for (String license[] : licenseData) {
+					copyrightText += String.format("\n\n    This software uses %s.\n\n", license[1]);
+					try {
+						FileInputStream fstream = new FileInputStream(license[0]);
+						BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+	
+						String strLine;
+	
+						while ((strLine = br.readLine()) != null)   {
+							copyrightText += String.format("         ---  %s\n", strLine);
+						}
+	
+						fstream.close();
+						
+					} catch (Exception exception) {
+						copyrightText = "\n\n     ** THIS IS A BUG ** \n\n   Please report this immediately.\n\n\n" + copyrightText;
+					}
+					
+					copyrightText += "\n-----------------------------------------------------\n";
+				}
+				
+				copyrightText += "\nThis software dedicated to NMI";
+				area.setText(copyrightText);
+				area.setCaretPosition(0);
+				area.setEditable(false);
+				
+			    mainPanel.add(scrollPane);
+
+				JDialog copyrightFrame = new JDialog(frame, "Copyright Notices", true);
+				copyrightFrame.setContentPane(mainPanel);
+				copyrightFrame.pack();
+				copyrightFrame.setVisible(true);
+			}
+		});
+		helpMenu.add(aboutBtn2);
+	}
+	
+	boolean canDelete() {
+		return propertiesPanel.object != null;
 	}
 	
 	void addWindowMenuBar(JMenuBar menu) {
@@ -728,6 +1555,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 
 		} else {
 			primaryAxis = a;
+			canvas.repaint();
 		}
 	}
 	
@@ -755,7 +1583,10 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		});
 		insertMenu.add(axisButton);
 		
+		insertMenu.add(new JSeparator());
+		
 		JMenuItem sdButton = new JMenuItem("Supply Line");
+		sdButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		sdButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -765,6 +1596,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		insertMenu.add(sdButton);
 		
 		JMenuItem sd2Button = new JMenuItem("Demand Line");
+		sd2Button.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		sd2Button.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -774,6 +1606,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		insertMenu.add(sd2Button);
 		
 		JMenuItem hzButton = new JMenuItem("Horizontal Line");
+		hzButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		hzButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -783,6 +1616,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		insertMenu.add(hzButton);
 		
 		JMenuItem vtButton = new JMenuItem("Vertical Line");
+		vtButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
 		vtButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -790,6 +1624,31 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		insertMenu.add(vtButton);
+		
+		JMenuItem keynesButton = new JMenuItem("Keynesian Line");
+		keynesButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_K, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+		keynesButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				actionManager.add(INSERT_KEYNESIAN_LINE.build());	
+			}
+		});
+		insertMenu.add(keynesButton);
+		
+		insertMenu.add(new JSeparator());
+
+		JMenuItem arrowButton = new JMenuItem("Arrow");
+		arrowButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (primaryAxis == null || !canvas.children.contains(primaryAxis)) {
+					JOptionPane.showMessageDialog(frame, "There is no primary axis. Select an axis\nand then go to Edit > Set Primary Axis", "No primary axis", JOptionPane.ERROR_MESSAGE);
+				} else {
+					actionManager.add(INSERT_BOUND_ARROW_WITHOUT_POSITION.build());	
+				}
+			}
+		});
+		insertMenu.add(arrowButton);
 		
 		JMenuItem labelButton1 = new JMenuItem("Label");
 		labelButton1.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, Toolkit.getDefaultToolkit ().getMenuShortcutKeyMask()));
@@ -799,7 +1658,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				if (primaryAxis == null || !canvas.children.contains(primaryAxis)) {
 					JOptionPane.showMessageDialog(frame, "There is no primary axis. Select an axis\nand then go to Edit > Set Primary Axis", "No primary axis", JOptionPane.ERROR_MESSAGE);
 				} else {
-					actionManager.add(INSERT_BOUND_LABEL_AT_RANDOM_POSITION.build());	
+					actionManager.add(INSERT_BOUND_LABEL_WITHOUT_POSITION.build());	
 				}
 			}
 		});
@@ -810,13 +1669,67 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		labelButton2.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				actionManager.add(INSERT_FREE_LABEL_AT_RANDOM_POSITION.build());	
+				actionManager.add(INSERT_FREE_LABEL_WITHOUT_POSITION.build());	
 			}
 		});
 		insertMenu.add(labelButton2);
 		
+		JMenuItem pointButton1 = new JMenuItem("Point");
+		pointButton1.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, Toolkit.getDefaultToolkit ().getMenuShortcutKeyMask()));
+		pointButton1.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (primaryAxis == null || !canvas.children.contains(primaryAxis)) {
+					JOptionPane.showMessageDialog(frame, "There is no primary axis. Select an axis\nand then go to Edit > Set Primary Axis", "No primary axis", JOptionPane.ERROR_MESSAGE);
+				} else {
+					actionManager.add(INSERT_BOUND_POINT_WITHOUT_POSITION.build());	
+				}
+			}
+		});
+		insertMenu.add(pointButton1);
+		
+		JMenuItem pointButton2 = new JMenuItem("Free Point");
+		pointButton2.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask() | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+		pointButton2.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				actionManager.add(INSERT_FREE_POINT_WITHOUT_POSITION.build());	
+			}
+		});
+		insertMenu.add(pointButton2);
+		
+		insertMenu.add(new JSeparator());
+		
+		JMenuItem intersectNew = new JMenuItem("Intersect Recently Added Lines  ");
+		intersectNew.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, java.awt.event.InputEvent.ALT_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
+		intersectNew.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				actionManager.add(INTERSECT_RECENTLY_ADDED_LINES.build());	
+			}
+		});
+		insertMenu.add(intersectNew);
+		
+		insertMenu.addMenuListener(new MenuListener() {
+			@Override
+			public void menuSelected(MenuEvent e) {
+				intersectNew.setEnabled(canIntersectRecentlyAddedLines());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				intersectNew.setEnabled(canIntersectRecentlyAddedLines());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				intersectNew.setEnabled(canIntersectRecentlyAddedLines());
+			}
+		});
+		
 	}
 	
+
 	void addEditMenuBar(JMenuBar menu) {
 		JMenu editMenu = new JMenu("Edit");
 		editMenu.setMnemonic('E');
@@ -827,7 +1740,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		undoButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				actionManager.undo();
+				actionManager.add(UNDO_ACTION.build());
 			}
 		});
 		editMenu.add(undoButton);
@@ -837,16 +1750,16 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		redoButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				actionManager.redo();
+				actionManager.add(REDO_ACTION.build());
 			}
 		});
 		editMenu.add(redoButton);
-		JMenuItem redoButton2 = new JMenuItem("");
+		JMenuItem redoButton2 = new JMenuItem("...");
 		redoButton2.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, java.awt.event.InputEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 		redoButton2.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				actionManager.redo();
+				actionManager.add(REDO_ACTION.build());
 			}
 		});
 		dummyMenu.add(redoButton2);
@@ -860,7 +1773,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		editMenu.add(deleteButton);
-		JMenuItem deleteButton2 = new JMenuItem("");
+		JMenuItem deleteButton2 = new JMenuItem("...");
 		deleteButton2.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0));
 		deleteButton2.addActionListener(new ActionListener() {
 			@Override
@@ -881,6 +1794,126 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		editMenu.add(setAxisButton);
+		
+		editMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				undoButton.setEnabled(actionManager.canUndo());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				undoButton.setEnabled(actionManager.canUndo());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				undoButton.setEnabled(actionManager.canUndo());
+			}
+		});
+		
+		dummyMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+		});
+		
+		dummyMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+		});
+		
+		editMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				redoButton.setEnabled(actionManager.canRedo());
+				redoButton2.setEnabled(actionManager.canRedo());
+			}
+		});
+		
+		editMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				deleteButton.setEnabled(canDelete());
+				deleteButton2.setEnabled(canDelete());
+			}
+		});
+		
+		editMenu.addMenuListener(new MenuListener() {
+
+			@Override
+			public void menuSelected(MenuEvent e) {
+				setAxisButton.setEnabled(canSetPrimaryAxis());
+			}
+
+			@Override
+			public void menuDeselected(MenuEvent e) {
+				setAxisButton.setEnabled(canSetPrimaryAxis());				
+			}
+
+			@Override
+			public void menuCanceled(MenuEvent e) {
+				setAxisButton.setEnabled(canSetPrimaryAxis());				
+			}
+		});
 	}
 	
 	void addFileMenuBar(JMenuBar menu) {
@@ -899,17 +1932,17 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		});
 		fileMenu.add(newButton);
 		
-		JMenuItem new2Button = new JMenuItem("New Blank Diagram...");
+		JMenuItem new2Button = new JMenuItem("New Blank Diagram");
 		new2Button.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, java.awt.event.InputEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit ().getMenuShortcutKeyMask()));
 		new2Button.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-
+				
 			}
 		});
 		fileMenu.add(new2Button);
 		
-		JMenuItem new3Button = new JMenuItem("New Window...");
+		JMenuItem new3Button = new JMenuItem("New Window");
 		new3Button.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -917,6 +1950,16 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 		});
 		fileMenu.add(new3Button);
+		
+		JMenuItem openButton = new JMenuItem("Open...");
+		openButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, Toolkit.getDefaultToolkit ().getMenuShortcutKeyMask()));
+		openButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				open();
+			}
+		});
+		fileMenu.add(openButton);
 		
 		fileMenu.add(new JSeparator());
 		
@@ -948,23 +1991,22 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		exportButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JFileChooser fileChooser = new JFileChooser();
-				fileChooser.setDialogTitle("Export As...");
-				
-				fileChooser.setFileFilter(new FileNameExtensionFilter("*.png", "PNG Image"));
-				
-				if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
-					
-					String path = fileChooser.getSelectedFile().getAbsolutePath();
-					if (!path.toLowerCase().endsWith(".png")) {
-						path += ".png";
-					}
-					
-					//export(path, ExportQuality.Normal);
-				}
+				export();
 			}
 		});
 		fileMenu.add(exportButton);
+		
+		fileMenu.add(new JSeparator());
+		
+		JMenuItem printButton = new JMenuItem("Print");
+		printButton.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+		printButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				canvas.print();
+			}
+		});
+		fileMenu.add(printButton);
 		
 		fileMenu.add(new JSeparator());
 		
@@ -980,9 +2022,9 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	
 	}
 	
-	Econogram() {
+	Econogram(JFrame inFrame, Canvas inCanvas) {
 		actionManager = new ActionManager(this);
-		
+				
 		try {
 			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e1) {
@@ -993,7 +2035,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		filename = null;
 		filepath = null;
 		
-		frame = new JFrame("");
+		frame = inFrame;
 		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		
 		try {
@@ -1001,10 +2043,10 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			frame.setIconImage(icon.getImage());
 		} catch (Exception e) { ; }
 		
-		canvas = new Canvas(this);
+		canvas = inCanvas == null ? new Canvas(this) : inCanvas;
 		canvas.setZoom(1.0);
 		canvas.setPan(0.0, 0.0);
-		primaryAxis = new Axis(new Coordinate(150, 90));
+		primaryAxis = new Axis(new Coordinate(144, 96));
 		canvas.addObject(primaryAxis);
 		canvas.addMouseListener(this);
 		canvas.addMouseMotionListener(this);
@@ -1120,7 +2162,9 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		
 
 		JPanel mainGroup = new JPanel(new BorderLayout());
-		
+		mainToolbar = new MainToolbar(this);
+		mainGroup.add(mainToolbar, BorderLayout.PAGE_START);
+
 		JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, renderScrollPane, propertiesPanel);
 		split.setResizeWeight(1);
 
@@ -1140,7 +2184,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		addViewMenuBar(menu);
 		addInsertMenuBar(menu);
 		addToolsMenuBar(menu);
-		addWindowMenuBar(menu);
+		//addWindowMenuBar(menu);
 		addHelpMenuBar(menu);
 		menu.add(dummyMenu);
 
@@ -1149,14 +2193,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		frame.pack();
 		frame.setVisible(true);
 		
-		
-		canvas.addComponentListener(new ComponentAdapter() {
-		    public void componentResized(ComponentEvent componentEvent) {
-		    	updateScrollbarSizes();
-		    }
-		});
-
-		updateTitle();
 		
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
@@ -1167,10 +2203,22 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				split.getRightComponent().setSize(defaultSize);
 			}
 		});
+        
+		canvas.addComponentListener(new ComponentAdapter() {
+		    public void componentResized(ComponentEvent componentEvent) {
+		    	updateScrollbarSizes();
+		    }
+		});
+
+		updateTitle();
+	
 	}
 	
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent e) {		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
+		
 		int notches = e.getWheelRotation();
 
 		if (e.isControlDown()) {
@@ -1181,27 +2229,49 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			updateScrollbarSizes();
 			
 		} else {
-			canvas.scrollY(((double) notches) * 25.0);
+			if (e.isShiftDown()) {		//Windows (and Mac?) use this to do horizontal scrollwheel events
+				canvas.scrollX(((double) notches) * 25.0);
+				
+				double posx = ((canvas.zoomPanSettings.x) * ((double)(hzScrollBar.getMaximum() - hzScrollBar.getMinimum()))) / canvas.getUsedWidth() / canvas.getZoom();
+				hzScrollBar.setValue((int) posx);
+				
+			} else {
+				canvas.scrollY(((double) notches) * 25.0);
+				
+				double posy = ((canvas.zoomPanSettings.y) * ((double)(vtScrollBar.getMaximum() - vtScrollBar.getMinimum()))) / canvas.getUsedHeight() / canvas.getZoom();
+				vtScrollBar.setValue((int) posy);
+			}
 			
-			double posy = ((canvas.zoomPanSettings.y) * ((double)(vtScrollBar.getMaximum() - vtScrollBar.getMinimum()))) / canvas.getUsedHeight() / canvas.getZoom();
-			vtScrollBar.setValue((int) posy);
 		}
 		
 	}
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
-
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
 	}
 
+	boolean wantFenceAddedOnMouseLift = false;
+	boolean addedFenceOnMouseDragYet = false;
+	int mouseDragEventsSinceClick = 0;
+	
 	@Override
 	public void mousePressed(MouseEvent e) {
+		wantFenceAddedOnMouseLift = false;
+		addedFenceOnMouseDragYet = false;
+		mouseDragEventsSinceClick = 0;
+		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
 		mouseDownX = e.getX();
 		mouseDownY = e.getY();
 		
 		double x = (e.getX() + canvas.getPanX()) / canvas.getZoom();
 		double y = (e.getY() + canvas.getPanY()) / canvas.getZoom();
-		
+		trueMouseDownX = x;
+		trueMouseDownY = y;
+
 		DrawObject objClickedOn = canvas.getObjectAtPosition(x, y);
 		
 		if (objClickedOn == null) {
@@ -1219,13 +2289,16 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			statusLabel.setText(String.format("You clicked on a %s", objClickedOn.getName()));
 			propertiesPanel.attach(objClickedOn);
 			
+			if (e.isShiftDown()) {
+				canvas.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+			}
+			
 			if (e.getClickCount() == 2) {
 				if (objClickedOn != null) {
 					objClickedOn.doubleClick(this);
 				}
 			}
 		}
-	
 
 		if (SwingUtilities.isRightMouseButton(e)) {
 			JPopupMenu menu = null;
@@ -1235,7 +2308,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			} else {
 				menu = new CanvasRightClickMenu(this, null); 
 			}
-			
+						
 			if (menu != null) {
 				menu.show(canvas, e.getX(), e.getY());
 			}
@@ -1244,25 +2317,53 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		canvas.repaint();
 
 	}
-
+	
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
+		lineShiftMode = false;
 		canvas.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+		
+		if (wantFenceAddedOnMouseLift) {
+			actionManager.addFenceBoundary();
+			wantFenceAddedOnMouseLift = false;
+		}
 	}
 
 	@Override
 	public void mouseEntered(MouseEvent e) {
-		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
 	}
 
 	@Override
 	public void mouseExited(MouseEvent e) {
-		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
 	}
 
 	@Override
-	public void mouseDragged(MouseEvent e) {		
-		if (panDragMode) {
+	public void mouseDragged(MouseEvent e) {	
+		mouseDragEventsSinceClick++;
+		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
+		if (panDragMode && e.isControlDown()) {
+			double x = (e.getX() + canvas.getPanX()) / canvas.getZoom();
+			double y = (e.getY() + canvas.getPanY()) / canvas.getZoom();
+			trueMouseDownX = x;
+			trueMouseDownY = y;
+
+			Arrow newArrow = new Arrow(new Coordinate(trueMouseDownX - primaryAxis.relativePosition.x, trueMouseDownY - primaryAxis.relativePosition.y), 0.0, 0.0);
+			primaryAxis.addChild(newArrow);
+			draggingObject = newArrow.arrowhead;
+			canvas.repaint();
+			lineShiftMode = false;
+			mousePressed(e);
+			
+		} else if (panDragMode) {
+		
 			canvas.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
 			double posx = ((panOnMouseDownX - e.getX() + mouseDownX) * ((double)(hzScrollBar.getMaximum() - hzScrollBar.getMinimum()))) / canvas.getUsedWidth() / canvas.getZoom();
@@ -1275,30 +2376,61 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		
 		} else {
 			if (draggingObject != null && draggingObject.canDrag) {
-				canvas.setCursor(new Cursor(Cursor.MOVE_CURSOR));
-
 				double x = (e.getX() + canvas.getPanX()) / canvas.getZoom();
 				double y = (e.getY() + canvas.getPanY()) / canvas.getZoom();
+				trueMouseDownX = x;
+				trueMouseDownY = y;
 				
 				double deltaX = x - panOnMouseDownX;
 				double deltaY = y - panOnMouseDownY;
 				
+				if ((e.isShiftDown() || lineShiftMode) && PrimaryLine.class.isAssignableFrom(draggingObject.getClass())) {
+					if (!lineShiftMode) {
+						((PrimaryLine)draggingObject).copy();						
+						verticalShiftMode = false;
+					}
+					
+					lineShiftMode = true;
+					if ((Math.abs(deltaY) > Math.abs(2.3 * deltaX) && Math.abs(deltaY) > 0.5) || verticalShiftMode) {
+						verticalShiftMode = true;
+						if (deltaY < 0) canvas.setCursor(new Cursor(Cursor.N_RESIZE_CURSOR));
+						else canvas.setCursor(new Cursor(Cursor.S_RESIZE_CURSOR));
+					} else {
+						if (deltaX < 0) canvas.setCursor(new Cursor(Cursor.W_RESIZE_CURSOR));
+						else canvas.setCursor(new Cursor(Cursor.E_RESIZE_CURSOR));
+					}
+					
+					if (Math.abs(deltaX) > Math.abs(2.3 * deltaY) && Math.abs(deltaX) > 0.5) {
+						verticalShiftMode = false;
+					}
+					
+				} else {
+					canvas.setCursor(new Cursor(Cursor.MOVE_CURSOR));
+
+				}
+				
 				draggingObject.mouseDragging(deltaX, deltaY);
 				propertiesPanel.regenerate();
 				
+				if (!addedFenceOnMouseDragYet || mouseDragEventsSinceClick % 24 == 16) {
+					actionManager.addFenceBoundary();
+					addedFenceOnMouseDragYet = true;
+				}
+				wantFenceAddedOnMouseLift = true;
+				
 				panOnMouseDownX = x;
 				panOnMouseDownY = y;
-				
 			}
 		}
 	}
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
-		
+		mouseMoveX = e.getX();
+		mouseMoveY = e.getY();
 	}
 	
 	public static void main(String args[]) {
-		new Econogram();
+		new Econogram(new JFrame(""), null);
 	}
 }

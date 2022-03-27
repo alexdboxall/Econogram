@@ -11,16 +11,53 @@ public class Point extends DrawObject {
 	boolean hzShowing = true;
 	boolean vtShowing = true;
 	boolean showDot = true;
-
+	boolean circular = false;
+	
+	int labelReloadUID;
+	int hzLineReloadUID;
+	int vtLineReloadUID;
+	
+	// IF YOU UPDATE THE SERIAL/DESERIAL HERE, YOU NEED TO UPDATE IT IN CalculatedPoint TOO
+	@Override
+	public void reloadOnDeserialisation(String data) {
+		showDot = data.charAt(0) == 'T';
+		vtShowing = data.charAt(1) == 'T';
+		hzShowing = data.charAt(2) == 'T';
+		circular = data.charAt(3) == 'T';
+		
+		System.out.printf("Pnt: %s\n", data.substring(4));
+		
+		String parts[] = data.substring(4).split(",");
+		labelReloadUID = Integer.parseInt(parts[0]);
+		hzLineReloadUID = Integer.parseInt(parts[1]);
+		vtLineReloadUID = Integer.parseInt(parts[2]);
+	}
+	
 	@Override
 	public String getSerialisation() {
-		return String.format("%c%c%c", showDot ? 'T' : 'F', vtShowing ? 'T' : 'F', hzShowing ? 'T' : 'F');
+		return String.format("%c%c%c%c%d,%d,%d", 
+				showDot ? 'T' : 'F', vtShowing ? 'T' : 'F', hzShowing ? 'T' : 'F', circular ? 'T' : 'F', 
+				label.getUniqueID(), hzLine.getUniqueID(), vtLine.getUniqueID());
+	}
+	
+	public Point(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
+		super(fullSerial, uid, canvas, parent_);
+		deserialiseTree(fullSerial);
+		
+		label = (Label) findChildWithUID(labelReloadUID);
+		hzLine = (PointLine) findChildWithUID(hzLineReloadUID);
+		vtLine = (PointLine) findChildWithUID(vtLineReloadUID);
+	}
+	
+	@Override
+	public String objectType3DigitID() {
+		return "PNT";
 	}
 	
 	public Point(Coordinate relativePos) {
 		super(relativePos);
 		
-		label = new Label(new Coordinate(0, 0), "New point");
+		label = new Label(new Coordinate(16, 4), "New point");
 		addChild(label);
 		
 		alignDragWithPointLineDots = true;
@@ -43,33 +80,42 @@ public class Point extends DrawObject {
 		properties.add(new PropertyEntryCheckbox("dot", "Show dot:", showDot));
 		properties.add(new PropertyEntryCheckbox("hzs", "Show horizontal line:", hzShowing));
 		properties.add(new PropertyEntryCheckbox("vts", "Show vertical line:", vtShowing));
+		properties.add(new PropertyEntryCheckbox("circular", "Circular:", circular));
 
 		return properties;
 	}
 
 	public void updateProperty(PropertyEntry property) {
-		if (property.id.equals("hzs")) {
-			boolean old = hzShowing;
-			hzShowing = ((PropertyEntryCheckbox) property).selected;
-			if (!hzShowing && old) {
-				hzLine.delete();
-			} else if (hzShowing && !old) {
-				addChild(hzLine);
+		try {
+			if (property.id.equals("hzs")) {
+				boolean old = hzShowing;
+				hzShowing = ((PropertyEntryCheckbox) property).selected;
+				if (!hzShowing && old) {
+					hzLine.delete();
+				} else if (hzShowing && !old) {
+					addChild(hzLine);
+				}
+				update();
 			}
-			update();
-		}
-		if (property.id.equals("vts")) {
-			boolean old = vtShowing;
-			vtShowing = ((PropertyEntryCheckbox) property).selected;
-			if (!vtShowing && old) {
-				vtLine.delete();
-			} else if (vtShowing && !old) {
-				addChild(vtLine);
+			if (property.id.equals("vts")) {
+				boolean old = vtShowing;
+				vtShowing = ((PropertyEntryCheckbox) property).selected;
+				if (!vtShowing && old) {
+					vtLine.delete();
+				} else if (vtShowing && !old) {
+					addChild(vtLine);
+				}
+				update();
 			}
-			update();
+		} catch (Exception e) {
+			
 		}
 		if (property.id.equals("dot")) {
 			showDot = ((PropertyEntryCheckbox) property).selected;
+			update();
+		}
+		if (property.id.equals("circular")) {
+			circular = ((PropertyEntryCheckbox) property).selected;
 			update();
 		}
 	}
@@ -91,14 +137,18 @@ public class Point extends DrawObject {
 
 	@Override
 	public void addDrawPrimativesPostChild(Coordinate base, List<DrawPrimative> primatives) {
-		List<Coordinate> coordList = new ArrayList<Coordinate>();
-		coordList.add(new Coordinate(base, new Coordinate(-5.0, -5.0)));
-		coordList.add(new Coordinate(base, new Coordinate(5.0, -5.0)));
-		coordList.add(new Coordinate(base, new Coordinate(5.0, 5.0)));
-		coordList.add(new Coordinate(base, new Coordinate(-5.0, 5.0)));
-
-		if (showDot) {
+		if (!showDot) return;
+		
+		if (!circular) {
+			List<Coordinate> coordList = new ArrayList<Coordinate>();
+			coordList.add(new Coordinate(base, new Coordinate(-5.0, -5.0)));
+			coordList.add(new Coordinate(base, new Coordinate(5.0, -5.0)));
+			coordList.add(new Coordinate(base, new Coordinate(5.0, 5.0)));
+			coordList.add(new Coordinate(base, new Coordinate(-5.0, 5.0)));
 			primatives.add(new PrimativePolygon(this, coordList));
+
+		} else {
+			primatives.add(new PrimativeEllipse(this, new Coordinate(base, new Coordinate(-5.0, -5.0)), 10.0, 10.0));
 		}
 	}
 

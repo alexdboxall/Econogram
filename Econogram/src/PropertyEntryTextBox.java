@@ -10,8 +10,17 @@ public class PropertyEntryTextBox extends PropertyEntry {
 	String displayText;
 
 	String dataText;
-	
+	boolean listenersBlocked;
 	PropertyEntryTextBox self;
+	JTextField field;
+	
+	void blockListeners(boolean state)  {
+		listenersBlocked = state;
+	}
+	
+	JTextField getTextField() {
+		return field;
+	}
 	
 	PropertyEntryPanel producePanel(DrawObject obj) {
 		PropertyEntryPanel panel = new PropertyEntryPanel();
@@ -24,12 +33,15 @@ public class PropertyEntryTextBox extends PropertyEntry {
 		JLabel label = new JLabel(displayText, JLabel.LEFT);
 		label.setFont(new Font("Courier New", Font.PLAIN, 12));
 
-		JTextField field = new JTextField();
+		field = new JTextField();
 		field.setFont(new Font("Courier New", Font.PLAIN, 12));
 		field.setText(dataText);
 		field.addCaretListener(new CaretListener() {
 			@Override
 			public void caretUpdate(CaretEvent e) {
+				if (listenersBlocked) {
+					return;
+				}
 				obj.getCanvasParent().econogram.actionManager.add(new Action() {
 					String oldText;
 					
@@ -106,7 +118,7 @@ public class PropertyEntryTextBox extends PropertyEntry {
 			}
 		});
 				
-		field.setPreferredSize(new Dimension(130, 25));
+		field.setPreferredSize(new Dimension(170, 25));
 		c.gridx = 0;
 		c.gridy = 0;
 		panel.add(label, c);

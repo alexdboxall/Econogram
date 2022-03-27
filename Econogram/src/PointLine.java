@@ -7,6 +7,11 @@ public class PointLine extends DrawObject {
 	protected boolean vertical = false;
 	
 	@Override
+	public void reloadOnDeserialisation(String data) {
+		vertical = data.charAt(0) == 'V';
+	}
+	
+	@Override
 	public String getSerialisation() {
 		return String.format("%c", vertical ? 'V' : 'H');
 	}
@@ -16,6 +21,10 @@ public class PointLine extends DrawObject {
 		this.vertical = vertical;
 	}
 
+	@Override
+	public String objectType3DigitID() {
+		return "PLN";
+	}
 	
 	@Override
 	public RightClickMenu getRightClickMenu(Econogram e, DrawObject o) {

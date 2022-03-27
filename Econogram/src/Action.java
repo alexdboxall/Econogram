@@ -1,6 +1,13 @@
 
-public interface Action {
-	boolean execute();
-	boolean undo();
-	boolean redo();
+public abstract class Action {
+	abstract boolean execute();
+	abstract boolean undo();
+	abstract boolean redo();
+	
+	boolean isFence() {
+		return true;
+	}
+	
+	DrawObject selectedObjectAtTheTime;
+	Axis primaryAxisAtTheTime;
 }

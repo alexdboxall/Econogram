@@ -12,9 +12,27 @@ public class Axis extends DrawObject {
 	Arrowhead hzArrowhead;
 	Arrowhead vtArrowhead;
 	
+	int vtAxisLabelReloadUID;
+	int hzAxisLabelReloadUID;
+	int vtArrowheadReloadUID;
+	int hzArrowheadReloadUID;
+
+	
+	public Axis(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
+		super(fullSerial, uid, canvas, parent_);
+		deserialiseTree(fullSerial);
+	
+		vtAxisLabel = (Label) findChildWithUID(vtAxisLabelReloadUID);
+		hzAxisLabel = (Label) findChildWithUID(hzAxisLabelReloadUID);
+		vtArrowhead = (Arrowhead) findChildWithUID(vtArrowheadReloadUID);
+		hzArrowhead = (Arrowhead) findChildWithUID(hzArrowheadReloadUID);
+	}
+	
 	public Axis(Coordinate relativePosition) {
 		super(relativePosition);
 		axisSize = 500;
+		
+		alignDragWithPointLineDotsX2 = true;
 		
 		hzArrowhead = new Arrowhead(new Coordinate(axisSize, axisSize), Arrowhead.BuiltinStyle.Normal, Arrowhead.ANGLE_EAST);
 		vtArrowhead = new Arrowhead(new Coordinate(0, 0), Arrowhead.BuiltinStyle.Normal, Arrowhead.ANGLE_NORTH);
@@ -28,6 +46,11 @@ public class Axis extends DrawObject {
 		addChild(vtArrowhead);
 		addChild(vtAxisLabel);
 		addChild(hzAxisLabel);
+	}
+	
+	@Override
+	public String objectType3DigitID() {
+		return "AXS";
 	}
 	
 	public List<PrimaryLine> getAllPrimaryLines() {
@@ -79,6 +102,12 @@ public class Axis extends DrawObject {
 		
 		Coordinate zeroPosition = new Coordinate(base.x - 18, base.y + axisSize + 18);
 		primatives.add(new PrimativeText(this, "0", zeroPosition));
+		
+		if (getCanvasParent().isShowingPrimaryAxisHint() && this == getCanvasParent().econogram.primaryAxis) {
+			PrimativeText phint = new PrimativeText(this, "PRIMARY", new Coordinate(zeroPosition, new Coordinate(0, 30.0)));
+			phint.colour = 0x00AA00;
+			primatives.add(phint);
+		}
 	}
 	
 	public List<PropertyEntry> getPropertiesPanelLayout() {
@@ -95,7 +124,18 @@ public class Axis extends DrawObject {
 
 	@Override
 	public String getSerialisation() {
-		return String.format("%d", axisSize);
+		return String.format("%d,%d,%d,%d,%d", axisSize, vtAxisLabel.uniqueID, hzAxisLabel.uniqueID, hzArrowhead.uniqueID, vtArrowhead.uniqueID);
+	}
+	
+	@Override
+	public void reloadOnDeserialisation(String data) {
+		String parts[] = data.split(",");
+		
+		axisSize = Integer.parseInt(parts[0]);
+		vtAxisLabelReloadUID = Integer.parseInt(parts[1]);
+		hzAxisLabelReloadUID = Integer.parseInt(parts[2]);
+		hzArrowheadReloadUID = Integer.parseInt(parts[3]);
+		vtArrowheadReloadUID = Integer.parseInt(parts[4]);
 	}
 
 	@Override
