@@ -1,4 +1,4 @@
 # Econogram
-Econogram is a GUI tool allowing you to create and export economics diagrams.
+Econogram is a GUI tool which allows users to easily create and export economics diagrams.
 
-![Econogram](https://github.com/alexdboxall/Econogram/blob/main/image.png "Econogram")
+![Econogram](https://github.com/alexdboxall/Econogram/blob/master/image.png "Econogram")
