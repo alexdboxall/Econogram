@@ -12,6 +12,10 @@ public class PrimativePolygon extends DrawPrimative {
 
 	double width;
 	
+	public boolean showingHints() {
+		return getParent().getCanvasParent().isShowingPrimaryAxisHint();
+	}
+	
 	public PrimativePolygon(DrawObject parent, List<Coordinate> p) {
 		super(parent);
 
@@ -44,6 +48,12 @@ public class PrimativePolygon extends DrawPrimative {
 		internalGraphics2D.setColor(new Color(parent.isSelected() ? 0xFF0000 : outlineColour));
 		internalGraphics2D.setStroke(new BasicStroke((float) (width * settings.zoom)));
 		internalGraphics2D.draw(path);
+		
+		if (showingHints()) {
+			internalGraphics2D.setColor(new Color(0x00A000));
+			internalGraphics2D.setStroke(new BasicStroke((float) 1.0));
+			internalGraphics2D.drawRect((int) (getX() * settings.zoom - settings.x), (int) (getY() * settings.zoom - settings.y), (int) (getWidth() * settings.zoom), (int) (getHeight() * settings.zoom));
+		}
 	}
 
 	@Override

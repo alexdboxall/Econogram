@@ -1081,7 +1081,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				@Override
 				public boolean undo() {
 					canvas.showPrimaryAxisHint(true);
-					showPrimaryHint.setText("Hide primary axis hint");
+					showPrimaryHint.setText("Hide bounding boxes");
 					canvas.repaint();
 					return true;
 				}
@@ -1089,7 +1089,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				@Override
 				public boolean execute() {
 					canvas.showPrimaryAxisHint(false);
-					showPrimaryHint.setText("Show primary axis hint");
+					showPrimaryHint.setText("Show bounding boxes");
 					canvas.repaint();
 					return true;
 				}
@@ -1109,7 +1109,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				@Override
 				public boolean execute() {
 					canvas.showPrimaryAxisHint(true);
-					showPrimaryHint.setText("Hide primary axis hint");
+					showPrimaryHint.setText("Hide bounding boxes");
 					canvas.repaint();
 					return true;
 				}
@@ -1117,7 +1117,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				@Override
 				public boolean undo() {
 					canvas.showPrimaryAxisHint(false);
-					showPrimaryHint.setText("Show primary axis hint");
+					showPrimaryHint.setText("Show bounding boxes");
 					canvas.repaint();
 					return true;
 				}
@@ -1211,11 +1211,12 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	}
 	
 	String compressSerialisedText(String text) {
-		String header = "0001";
-		String compressed = text.replace(" ", "  ").replace("\n", " N").replace("\r", " R").replace("\t", " T").replace(".000000", " 0");
+		String header = "0002";
+		String compressed = text.replace("!", "! ").replace("\n", "!N").replace("\r", "!R").replace("\t", "!T").replace(".000000", "!0");
 		header += compressed.length();
 		header += ";";
 
+		System.out.printf("primaryAxis.getUniqueID() = %d\n", primaryAxis.getUniqueID());
 		int hash = 7;
 		for (int i = 0; i < compressed.length(); i++) {
 		    hash = hash * 31 + compressed.charAt(i);
@@ -1226,22 +1227,37 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		return String.format("Econogram! %04d%s%s", header.length(), header, compressed);
 	}
 	
+	static final String OPEN_FILE_ERROR_NEWER_VERSION = "ERROR_NEWER_VERSION";
+		
 	String decompressSerialisedText(String text) {
 		if (!text.startsWith("Econogram! ")) {
 			return "";
 		}
 		text = text.substring(11);
 		int headerLength = Integer.parseInt(text.substring(0, 4));
+		
+		String header = text.substring(4, headerLength + 4);
+		int version = Integer.parseInt(header.substring(0, 4));
 		text = text.substring(headerLength + 4);
-		return text.replace(" 0", ".000000").replace(" T", "\t").replace(" R", "\r").replace(" N", "\n").replace("  ", " ");
+
+		if (version == 1) {
+			return text.replace(" 0", ".000000").replace(" T", "\t").replace(" R", "\r").replace(" N", "\n").replace("  ", " ");
+		
+		} else if (version == 2) {
+			return text.replace("!0", ".000000").replace("!T", "\t").replace("!R", "\r").replace("!N", "\n").replace("! ", "!");
+
+		}
+		
+		return OPEN_FILE_ERROR_NEWER_VERSION;
 	}
 	
 	void export() {
 		JFileChooser fileChooser = new JFileChooser();
 		fileChooser.setDialogTitle("Export...");
 		
-		fileChooser.setFileFilter(new FileNameExtensionFilter("*.png", "PNG File"));
-		
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("PNG Image (*.png)", "png");
+        fileChooser.addChoosableFileFilter(filter);
+        fileChooser.setAcceptAllFileFilterUsed(false);		
 		if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
 
 			String path = fileChooser.getSelectedFile().getAbsolutePath();
@@ -1259,15 +1275,14 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 	}
 	
-	void save() {
+	boolean save() {
 		if (filepath == null) {
-			saveAs();
-			return;
+			return saveAs();
 		}
 		
 		if (filepath == null) {
 			JOptionPane.showMessageDialog(frame, "* REPORT THIS BUG *", "Could not save", JOptionPane.ERROR_MESSAGE);
-			return;
+			return false;
 		}
 		
 		String serial = compressSerialisedText(String.format("%s", canvas.serialise()));
@@ -1290,60 +1305,87 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 				
 		unsavedChanges = false;
 		updateTitle();
+		
+		return true;
+	}
+	
+	void openFilepath(String path, String fname) {
+		filepath = path;
+		filename = fname;
+		unsavedChanges = false;
+		
+		FileInputStream in;
+		try {
+			in = new FileInputStream(filepath);
+			byte[] data = in.readAllBytes();
+			in.close();
+			
+			frame.remove(canvas);
+			
+			String dataString = decompressSerialisedText(new String(data, "UTF-8"));
+			if (dataString.equals(OPEN_FILE_ERROR_NEWER_VERSION)) {
+				JOptionPane.showMessageDialog(frame, "This file was created with a newer version of Econogram.", "Econogram", JOptionPane.ERROR_MESSAGE);
+				return;
+			}
+			Canvas newCanvas = new Canvas(dataString);
+			newCanvas.econogram = new Econogram(frame, newCanvas);
+			
+			for (DrawObject obj : newCanvas.children) {
+				if (obj.getClass() == (new Axis(new Coordinate(0.0, 0.0))).getClass()) {
+					if (((Axis) obj).makeThisPrimaryOnReload) {
+						((Axis) obj).makeThisPrimaryOnReload = false;
+						newCanvas.econogram.primaryAxis = (Axis) obj;
+						break;
+					}
+				}
+			}
+			
+		} catch (FileNotFoundException e) {
+			JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Econogram", JOptionPane.ERROR_MESSAGE);
+			
+		} catch (IOException e) {
+			JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Econogram", JOptionPane.ERROR_MESSAGE);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(frame, "The file is either not an Econogram file, or is corrupt.", "Econogram", JOptionPane.ERROR_MESSAGE);
+		}
+		
+		updateTitle();
 	}
 	
 	void open() {
-		if (unsavedChanges) {
-			//show alert: about saving before closing
-		}
+		if (!saveChangesDialog()) return;
 		
 		JFileChooser fileChooser = new JFileChooser();
 		fileChooser.setDialogTitle("Open...");
 		
-		fileChooser.setFileFilter(new FileNameExtensionFilter("*.edi", "Econogram Diagram"));
-		
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("Econogram Diagram (*.edi)", "edi");
+        fileChooser.addChoosableFileFilter(filter);
+        fileChooser.setAcceptAllFileFilterUsed(true);
+        
 		if (fileChooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
 			
 			String path = fileChooser.getSelectedFile().getAbsolutePath();
-			filename = fileChooser.getSelectedFile().getName();
+			String name = fileChooser.getSelectedFile().getName();
 
 			if (!path.toLowerCase().endsWith(".edi")) {
-				filename += ".edi";
+				name += ".edi";
 				path += ".edi";
 			}
 			
-			filepath = path;
-			unsavedChanges = false;
-			
-			FileInputStream in;
-			try {
-				in = new FileInputStream(filepath);
-				byte[] data = in.readAllBytes();
-				in.close();
-				
-				frame.remove(canvas);
-				Canvas newCanvas = new Canvas(decompressSerialisedText(new String(data, "UTF-8")));
-				newCanvas.econogram = new Econogram(frame, newCanvas);
-				
-			} catch (FileNotFoundException e) {
-				JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Could not open", JOptionPane.ERROR_MESSAGE);
-				
-			} catch (IOException e) {
-				JOptionPane.showMessageDialog(frame, "An error occured when trying to open the file.", "Could not open", JOptionPane.ERROR_MESSAGE);
-				
-			} catch (Exception e) {
-				e.printStackTrace();
-				JOptionPane.showMessageDialog(frame, "The file is either not an Econogram file, or is corrupt.", "Could not open", JOptionPane.ERROR_MESSAGE);
-			}
+			openFilepath(path, name);
 		}
 	}
 	
-	void saveAs() {
+	boolean saveAs() {
 		JFileChooser fileChooser = new JFileChooser();
 		fileChooser.setDialogTitle("Save As...");
 		
-		fileChooser.setFileFilter(new FileNameExtensionFilter("*.edi", "Econogram Diagram"));
-		
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("Econogram Diagram (*.edi)", "edi");
+        fileChooser.addChoosableFileFilter(filter);
+        fileChooser.setAcceptAllFileFilterUsed(true);
+        
 		if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
 			
 			String path = fileChooser.getSelectedFile().getAbsolutePath();
@@ -1355,8 +1397,10 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			}
 			
 			filepath = path;
-			save();
+			return save();
 		}
+		
+		return false;
 	}
 	
 	void updateZoomSlider() {
@@ -1436,7 +1480,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		});
 		viewMenu.add(showGridlines);
 		
-		showPrimaryHint = new JMenuItem(canvas.isShowingParentGuides() ? "Hide primary axis hint" : "Show primary axis hint");
+		showPrimaryHint = new JMenuItem(canvas.isShowingParentGuides() ? "Hide bounding boxes" : "Show bounding boxes");
 		showPrimaryHint.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -1551,7 +1595,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	
 	void setPrimaryAxis(Axis a) {
 		if (a == null) {
-			JOptionPane.showMessageDialog(frame, "Please select an axis first.", "No axis selected", JOptionPane.ERROR_MESSAGE);
+			JOptionPane.showMessageDialog(frame, "Please select an axis first.", "Econogram", JOptionPane.ERROR_MESSAGE);
 
 		} else {
 			primaryAxis = a;
@@ -1642,7 +1686,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (primaryAxis == null || !canvas.children.contains(primaryAxis)) {
-					JOptionPane.showMessageDialog(frame, "There is no primary axis. Select an axis\nand then go to Edit > Set Primary Axis", "No primary axis", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(frame, "There is no primary axis selected. Select an axis\nand then go to Edit > Set Primary Axis", "Econogram", JOptionPane.ERROR_MESSAGE);
 				} else {
 					actionManager.add(INSERT_BOUND_ARROW_WITHOUT_POSITION.build());	
 				}
@@ -1656,7 +1700,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (primaryAxis == null || !canvas.children.contains(primaryAxis)) {
-					JOptionPane.showMessageDialog(frame, "There is no primary axis. Select an axis\nand then go to Edit > Set Primary Axis", "No primary axis", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(frame, "There is no primary axis selected. Select an axis\nand then go to Edit > Set Primary Axis", "Econogram", JOptionPane.ERROR_MESSAGE);
 				} else {
 					actionManager.add(INSERT_BOUND_LABEL_WITHOUT_POSITION.build());	
 				}
@@ -1916,6 +1960,35 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		});
 	}
 	
+	boolean saveChangesDialog() {
+		if (unsavedChanges) {
+			String[] options = {"Save", "Don't Save", "Cancel"};
+			int result = JOptionPane.showOptionDialog(frame, "Would you like to save your changes?\nUnsaved changed will be lost.", "Save?", JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+			if (result == 0) {
+				// "yes"
+				boolean actuallySaved = save();
+				if (!actuallySaved) {
+					return false;
+				}
+				
+			} else if (result == 1) {
+				// "no"
+				return true;
+				
+			} else {
+				// "cancel" is 2 and pressing ESC is -1
+				// any future return codes added to Java should "do no harm" and act as cancel
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	void quit() {
+		if (!saveChangesDialog()) return;
+		frame.dispose();
+	}
+	
 	void addFileMenuBar(JMenuBar menu) {
 		JMenu fileMenu = new JMenu("File");
 		fileMenu.setMnemonic('F');
@@ -2015,7 +2088,7 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		exitButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				frame.dispose();
+				quit();
 			}
 		});
 		fileMenu.add(exitButton);
@@ -2031,12 +2104,23 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 			e1.printStackTrace();
 		}
 		
-		unsavedChanges = true;
+		unsavedChanges = false;
 		filename = null;
 		filepath = null;
 		
 		frame = inFrame;
-		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		for (WindowListener wa : frame.getWindowListeners()) {
+			frame.removeWindowListener(wa);										//ensures we don't end up with multiple calls to quit() after save/load is done 
+		}
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		frame.addWindowListener(new WindowAdapter() {
+		    @Override
+		    public void windowClosing(WindowEvent event) {
+		    	System.out.printf("About to call quit(). hc = 0x%X\n", this.hashCode());
+		        quit();
+		    }
+		});
+		
 		
 		try {
 			ImageIcon icon = (ImageIcon) FileSystemView.getFileSystemView().getSystemIcon(new File("econogram.exe"));
@@ -2047,7 +2131,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		canvas.setZoom(1.0);
 		canvas.setPan(0.0, 0.0);
 		primaryAxis = new Axis(new Coordinate(144, 96));
-		canvas.addObject(primaryAxis);
 		canvas.addMouseListener(this);
 		canvas.addMouseMotionListener(this);
 		canvas.addMouseWheelListener(this);
@@ -2192,7 +2275,8 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		frame.setContentPane(mainGroup);
 		frame.pack();
 		frame.setVisible(true);
-		
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
 		
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
@@ -2209,9 +2293,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		    	updateScrollbarSizes();
 		    }
 		});
-
-		updateTitle();
-	
 	}
 	
 	@Override
@@ -2315,7 +2396,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 		}
 		
 		canvas.repaint();
-
 	}
 	
 	@Override
@@ -2431,6 +2511,6 @@ public class Econogram implements MouseWheelListener, MouseListener, MouseMotion
 	}
 	
 	public static void main(String args[]) {
-		new Econogram(new JFrame(""), null);
+		(new Econogram(new JFrame(""), null)).openFilepath("src/template/blankaxis.edi", "Untitled Diagram");
 	}
 }

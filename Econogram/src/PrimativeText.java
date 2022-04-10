@@ -14,6 +14,10 @@ public class PrimativeText extends DrawPrimative {
 	
 	protected double radians = 0;
 
+	public boolean showingHints() {
+		return getParent().getCanvasParent().isShowingPrimaryAxisHint();
+	}
+	
 	public double getRotation(double radians) {
 		return radians;
 	}
@@ -65,6 +69,12 @@ public class PrimativeText extends DrawPrimative {
 		internalGraphics2D.drawString(text, (int) x, (int) y);
 		prevWidth = internalGraphics2D.getFontMetrics().stringWidth(text);
 		prevHeight = size;
+		
+		if (showingHints()) {
+			internalGraphics2D.setColor(new Color(0x00A000));
+			internalGraphics2D.setStroke(new BasicStroke((float) 1.0));
+			internalGraphics2D.drawRect((int) x, (int) (y - getHeight() * settings.zoom), (int) (getWidth()), (int) (getHeight() * settings.zoom));
+		}
 	}
 
 	@Override

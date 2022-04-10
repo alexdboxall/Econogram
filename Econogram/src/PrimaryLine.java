@@ -39,7 +39,7 @@ public abstract class PrimaryLine extends DrawObject {
 	}
 	
 	public String primaryLineSerialisation() {
-		return String.format("%d,%f,%f,%f,%f,%f,%d,%f,%f@", label.uniqueID, padding, labelRelShiftX, labelRelShiftY, labelExpectedX, labelExpectedY, firstRightmostCalculationDoneYet ? 1 : 0, rightmostX, rightmostY);
+		return String.format("%d,%f,%f,%f,%f,%f,%d,%f,%f@", label == null ? 0 : label.uniqueID, padding, labelRelShiftX, labelRelShiftY, labelExpectedX, labelExpectedY, firstRightmostCalculationDoneYet ? 1 : 0, rightmostX, rightmostY);
 	}
 	
 	public PrimaryLine(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
@@ -61,11 +61,7 @@ public abstract class PrimaryLine extends DrawObject {
 	
 	public abstract List<IntersectableLine> getLineBreakdown();
 	
-	@Override
-	public void mouseDragging(double deltaX, double deltaY) {
-		
-		super.mouseDragging(deltaX, deltaY);
-		
+	public void recalculateLabelPosition() {
 		if (label != null) {
 			double oldLabelRelShiftX = labelRelShiftX;
 			double oldLabelRelShiftY = labelRelShiftY;
@@ -133,6 +129,14 @@ public abstract class PrimaryLine extends DrawObject {
 				});
 			}
 		}
+	}
+	
+	@Override
+	public void mouseDragging(double deltaX, double deltaY) {
+		
+		super.mouseDragging(deltaX, deltaY);
+		
+		recalculateLabelPosition();
 	}
 	
 	@Override

@@ -1,5 +1,6 @@
 
 import java.awt.event.*;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.*;
@@ -74,14 +75,24 @@ public class PrimaryLineRightClickMenu extends RightClickMenu {
 		if (line.label == null || line.label.parent == null || !line.children.contains(line.label)) {
 			add(new JSeparator());
 
-			JMenuItem reintroduceLabel = new JMenuItem("Reintroduce Label");
+			JMenuItem reintroduceLabel = new JMenuItem("Add label");
 			reintroduceLabel.addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					econogram.actionManager.add(new Action() {
 						@Override
 						public boolean execute() {
-							line.addChild(line.label);
+							if (line.label != null) {
+								line.addChild(line.label);
+							} else {
+								Label newLabel = new Label(new Coordinate(0.0, 0.0), "");
+								line.label = newLabel;
+								line.addChild(newLabel);
+								line.firstRightmostCalculationDoneYet = false;
+								line.recalculateLabelPosition();
+								line.addDrawPrimativesPostChild(line.getAbsolutePosition(), new ArrayList<DrawPrimative>());
+							}
+							
 							line.getCanvasParent().repaint();
 							return true;
 						}

@@ -9,6 +9,10 @@ public class PrimativeLine extends DrawPrimative {
 	int colour;
 	double width;
 	
+	public boolean showingHints() {
+		return getParent().getCanvasParent().isShowingPrimaryAxisHint();
+	}
+	
 	public PrimativeLine(DrawObject parent, Coordinate start, Coordinate end) {
 		super(parent);
 
@@ -33,6 +37,18 @@ public class PrimativeLine extends DrawPrimative {
 		internalGraphics2D.setColor(new Color(parent.isSelected() ? 0xFF5500 : colour));
 		internalGraphics2D.setStroke(new BasicStroke((float) (width * settings.zoom)));
 		internalGraphics2D.draw(new Line2D.Double(x1, y1, x2, y2));
+		
+		if (showingHints()) {
+			internalGraphics2D.setColor(new Color(0x00A0A0));
+			internalGraphics2D.setStroke(new BasicStroke((float) 0.5));
+			
+			double minX = x1 < x2 ? x1 : x2;
+			double minY = y1 < y2 ? y1 : y2;
+			double maxX = x1 > x2 ? x1 : x2;
+			double maxY = y1 > y2 ? y1 : y2;
+			
+			internalGraphics2D.drawRect((int) minX, (int) minY, (int) (maxX - minX + 1), (int) (maxY - minY + 1));
+		}
 	}
 
 	@Override

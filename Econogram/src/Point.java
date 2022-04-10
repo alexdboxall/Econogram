@@ -122,7 +122,7 @@ public class Point extends DrawObject {
 
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
-		label.setCanvasParent(getCanvasParent());
+		if (label != null) label.setCanvasParent(getCanvasParent());
 		
 		if (parent != null && hzLine == null) {
 			hzLine = new PointLine(new Coordinate(0, 0), false);

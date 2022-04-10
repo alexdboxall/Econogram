@@ -16,7 +16,8 @@ public class Axis extends DrawObject {
 	int hzAxisLabelReloadUID;
 	int vtArrowheadReloadUID;
 	int hzArrowheadReloadUID;
-
+	
+	boolean makeThisPrimaryOnReload;
 	
 	public Axis(String fullSerial, int uid, Canvas canvas, DrawObject parent_) {
 		super(fullSerial, uid, canvas, parent_);
@@ -124,7 +125,7 @@ public class Axis extends DrawObject {
 
 	@Override
 	public String getSerialisation() {
-		return String.format("%d,%d,%d,%d,%d", axisSize, vtAxisLabel.uniqueID, hzAxisLabel.uniqueID, hzArrowhead.uniqueID, vtArrowhead.uniqueID);
+		return String.format("%d,%d,%d,%d,%d,%d", axisSize, vtAxisLabel.uniqueID, hzAxisLabel.uniqueID, hzArrowhead.uniqueID, vtArrowhead.uniqueID, this == getCanvasParent().econogram.primaryAxis ? 1 : 0);
 	}
 	
 	@Override
@@ -136,6 +137,10 @@ public class Axis extends DrawObject {
 		hzAxisLabelReloadUID = Integer.parseInt(parts[2]);
 		hzArrowheadReloadUID = Integer.parseInt(parts[3]);
 		vtArrowheadReloadUID = Integer.parseInt(parts[4]);
+		
+		if (parts[5].charAt(0) == '1') {
+			makeThisPrimaryOnReload = true;
+		}
 	}
 
 	@Override

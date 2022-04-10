@@ -31,14 +31,10 @@ public class Arrow extends DrawObject {
 	}
 	
 	void updateArrowheads() {
-		if (arrowhead != null) {
-			arrowhead.relativePosition.x = length * Math.cos(angle);
-			arrowhead.relativePosition.y = length * Math.sin(angle);
-			arrowhead.setAngle(-angle);
-		}
-		if (backArrowhead != null) {
-			backArrowhead.setAngle(-angle + Math.PI);
-		}
+		arrowhead.relativePosition.x = length * Math.cos(angle);
+		arrowhead.relativePosition.y = length * Math.sin(angle);
+		arrowhead.setAngle(-angle);
+		backArrowhead.setAngle(-angle + Math.PI);
 	}
 
 	@Override
@@ -62,7 +58,7 @@ public class Arrow extends DrawObject {
 
 	@Override
 	public String getSerialisation() {
-		return String.format("%f,%f,%c,%c,%d,%d", length, angle, showFrontArrow ? 'T' : 'F', showBackArrow ? 'T' : 'F', arrowheadReloadUID, arrowhead2ReloadUID);
+		return String.format("%f,%f,%c,%c,%d,%d", length, angle, showFrontArrow ? 'T' : 'F', showBackArrow ? 'T' : 'F', arrowhead.getUniqueID(), backArrowhead.getUniqueID());
 	}
 	
 	@Override
@@ -83,15 +79,11 @@ public class Arrow extends DrawObject {
 
 	@Override
 	public void addDrawPrimativesPreChild(Coordinate base, List<DrawPrimative> primatives) {
-		if (arrowhead != null) {
-			arrowhead.setCanvasParent(getCanvasParent());
-			arrowhead.hide = !showFrontArrow;
-		}
-		if (backArrowhead != null) {
-			backArrowhead.setCanvasParent(getCanvasParent());
-			backArrowhead.hide = !showBackArrow;
-		}
-		
+		arrowhead.setCanvasParent(getCanvasParent());
+		arrowhead.hide = !showFrontArrow;
+		backArrowhead.setCanvasParent(getCanvasParent());
+		backArrowhead.hide = !showBackArrow;
+				
 		for (double w = 0; w < length; w += length / 100) {
 			Coordinate start = new Coordinate(base,  new Coordinate(w * Math.cos(angle), w * Math.sin(angle)));
 			Coordinate end = new Coordinate(base, new Coordinate((w + length / 10) * Math.cos(angle), (w + length / 10) * Math.sin(angle)));

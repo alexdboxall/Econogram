@@ -20,6 +20,15 @@ public class Canvas extends JPanel implements KeyListener {
 	int gridMinorColour = 0xC0C0C0;
 	int gridMajorColour = 0x808080;
 	
+	public DrawObject findChildWithUID(int uid) {
+		for (DrawObject c : children) {
+			if (c.uniqueID == uid) {
+				return c;
+			}
+		}
+		return null;
+	}
+	
 	public boolean isShowingPrimaryAxisHint() {
 		return showingPrimaryAxisHint;
 	}
@@ -382,7 +391,9 @@ public class Canvas extends JPanel implements KeyListener {
 		}
 		
 		if (oldW != getUsedWidth() || oldH != getUsedHeight()) {
-			econogram.updateScrollbarSizes();
+			if (econogram != null) {
+				econogram.updateScrollbarSizes();
+			}
 		}
 	}
 

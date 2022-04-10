@@ -66,6 +66,7 @@ public abstract class DrawObject {
 	}
 	
 	public void deleteChild(DrawObject obj) {
+		obj.parent = null;
 		children.remove(obj);
 	}
 		
